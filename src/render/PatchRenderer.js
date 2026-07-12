@@ -2,7 +2,8 @@
  * @typedef {import('./ViewBuffer.js').ViewBuffer} ViewBuffer
  */
 
-import { FRACUNIT } from '../core/renderConstants.js';
+import { FRACBITS, FRACUNIT } from '../core/renderConstants.js';
+import { fixedDiv } from '../math/fixed.js';
 
 /**
  * @typedef {Object} PatchHeader
@@ -158,54 +159,64 @@ export class PatchRenderer {
   }
 
   /**
-   * Draw a patch scaled in fixed-point (r_things.c projection scale).
-   * @param {number} x
-   * @param {number} y
+   * Draw a patch scaled in fixed-point (r_things.c — R_DrawVisSprite / R_DrawMaskedColumn).
+   * @param {number} x Mobj anchor X (offset applied here)
+   * @param {number} y Mobj anchor Y (offset applied here)
    * @param {PatchHeader} patch
    * @param {Uint8Array} patchData
    * @param {Uint8Array|null} colormap
    * @param {number} scale Fixed-point scale (FRACUNIT = 1:1)
    */
   drawPatchScaled(x, y, patch, patchData, colormap, scale) {
-    if (scale >= (FRACUNIT * 3) / 4 && scale <= (FRACUNIT * 5) / 4) {
-      this.drawPatch(x, y, patch, patchData, colormap ?? undefined);
+    if (scale <= 0) {
       return;
     }
 
     const screenWidth = this.buffer.screenWidth;
     const screenHeight = this.buffer.screenHeight;
     const pixels = this.buffer.pixels;
-    const destWidth = Math.max(1, (patch.width * scale) >> 16);
-    const destHeight = Math.max(1, (patch.height * scale) >> 16);
-    const startX = x - ((patch.leftOffset * scale) >> 16);
-    const startY = y - ((patch.topOffset * scale) >> 16);
-
-    if (startX + destWidth <= 0 || startX >= screenWidth || startY + destHeight <= 0) {
+    const destWidth = (patch.width * scale) >> FRACBITS;
+    if (destWidth <= 0) {
       return;
     }
 
+    const startX = x - ((patch.leftOffset * scale) >> FRACBITS);
+    const sprtopscreen = (y - ((patch.topOffset * scale) >> FRACBITS)) << FRACBITS;
+    const xiscale = fixedDiv(FRACUNIT, scale);
+    let frac = 0;
+
     for (let destCol = 0; destCol < destWidth; destCol++) {
       const screenX = startX + destCol;
+      const srcCol = Math.min(patch.width - 1, frac >> FRACBITS);
+      frac += xiscale;
+
       if (screenX < 0 || screenX >= screenWidth) {
         continue;
       }
 
-      const srcCol = Math.min(patch.width - 1, (destCol * patch.width) / destWidth | 0);
       let columnOffset = patch.columnOffsets[srcCol];
       let topDelta = patchData[columnOffset];
 
       while (topDelta !== 0xff) {
         const length = patchData[columnOffset + 1];
-        let sourceIndex = columnOffset + 3;
-        const destTop = startY + ((topDelta * scale) >> 16);
-        const destRun = Math.max(1, (length * scale) >> 16);
+        const sourceIndex = columnOffset + 3;
+        const topFixed = sprtopscreen + scale * topDelta;
+        const bottomFixed = topFixed + scale * length;
+        let dcYl = (topFixed + FRACUNIT - 1) >> FRACBITS;
+        let dcYh = (bottomFixed - 1) >> FRACBITS;
 
-        for (let row = 0; row < destRun; row++) {
-          const screenY = destTop + row;
-          if (screenY < 0 || screenY >= screenHeight) {
-            continue;
-          }
-          const srcRow = Math.min(length - 1, (row * length) / destRun | 0);
+        if (dcYl < 0) {
+          dcYl = 0;
+        }
+        if (dcYh >= screenHeight) {
+          dcYh = screenHeight - 1;
+        }
+
+        for (let screenY = dcYl; screenY <= dcYh; screenY++) {
+          const srcRow = Math.min(
+            length - 1,
+            Math.max(0, ((screenY << FRACBITS) - topFixed) / scale | 0),
+          );
           const color = patchData[sourceIndex + srcRow];
           pixels[screenY * screenWidth + screenX] = colormap ? colormap[color] : color;
         }
