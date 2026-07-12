@@ -99,7 +99,7 @@ export class WallDrawer {
       ds.scalestep = 0;
     }
 
-    const worldTop = frontsector.ceilingHeight - this.ctx.viewZ;
+    let worldTop = frontsector.ceilingHeight - this.ctx.viewZ;
     const worldBottom = frontsector.floorHeight - this.ctx.viewZ;
 
     let midTexture = 0;
@@ -134,8 +134,14 @@ export class WallDrawer {
         ds.tsilheight = frontsector.ceilingHeight;
       }
 
-      const worldHigh = backsector.ceilingHeight - this.ctx.viewZ;
+      let worldHigh = backsector.ceilingHeight - this.ctx.viewZ;
       const worldLow = backsector.floorHeight - this.ctx.viewZ;
+
+      // Outdoor sky hack (r_segs.c) — needed for correct ceiling/floor marks at sky borders.
+      if (frontsector.ceilingPic === this.ctx.textures.skyFlatNum
+        && backsector.ceilingPic === this.ctx.textures.skyFlatNum) {
+        worldTop = worldHigh;
+      }
 
       markFloor = worldLow !== worldBottom
         || backsector.floorPic !== frontsector.floorPic
@@ -143,6 +149,12 @@ export class WallDrawer {
       markCeiling = worldHigh !== worldTop
         || backsector.ceilingPic !== frontsector.ceilingPic
         || backsector.lightLevel !== frontsector.lightLevel;
+
+      if (backsector.ceilingHeight <= frontsector.floorHeight
+        || backsector.floorHeight >= frontsector.ceilingHeight) {
+        markCeiling = true;
+        markFloor = true;
+      }
 
       if (worldHigh < worldTop) {
         topTexture = sidedef.topTexture;

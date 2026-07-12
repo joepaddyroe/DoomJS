@@ -13,7 +13,7 @@ import { KeyboardInput } from './platform/input/KeyboardInput.js';
 
 const WAD_PATHS = ['./doom.wad', './assets/doom.wad', '../doom.wad'];
 const MAP_NAME = 'E1M1';
-const BUILD_TAG = '2026-07-12-native7';
+const BUILD_TAG = '2026-07-12-native9';
 
 const canvas = document.getElementById('screen');
 const output = new CanvasVideoOutput(canvas, undefined, undefined, DEFAULT_PIXEL_SCALE);
