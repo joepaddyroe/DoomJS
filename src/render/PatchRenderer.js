@@ -56,7 +56,7 @@ export class PatchRenderer {
 
       while (topDelta !== 0xff) {
         const length = patchData[columnOffset + 1];
-        const sourceIndex = columnOffset + 3;
+        let sourceIndex = columnOffset + 3;
         let dest = destTop + topDelta * screenWidth;
         let count = length;
 

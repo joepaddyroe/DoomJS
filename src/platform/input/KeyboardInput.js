@@ -3,6 +3,7 @@ import {
   FORWARDMOVE,
   SIDEMOVE,
 } from '../../core/gameConstants.js';
+import { BT_ATTACK } from '../../core/inputButtons.js';
 import { createTicCmd } from '../../game/TicCmd.js';
 
 /**
@@ -48,7 +49,9 @@ export class KeyboardInput {
   /** @param {string} code */
   _isGameKey(code) {
     return code.startsWith('Arrow')
-      || code === 'KeyW' || code === 'KeyA' || code === 'KeyS' || code === 'KeyD';
+      || code === 'KeyW' || code === 'KeyA' || code === 'KeyS' || code === 'KeyD'
+      || code === 'ControlLeft' || code === 'ControlRight'
+      || code === 'Space';
   }
 
   /** @returns {import('../../game/TicCmd.js').TicCmd} */
@@ -79,6 +82,9 @@ export class KeyboardInput {
     }
     if (this.keys.has('ArrowRight')) {
       cmd.angleturn -= turnSpeed;
+    }
+    if (this.keys.has('ControlLeft') || this.keys.has('ControlRight') || this.keys.has('Space')) {
+      cmd.buttons |= BT_ATTACK;
     }
 
     return cmd;

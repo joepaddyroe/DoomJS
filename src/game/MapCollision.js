@@ -543,6 +543,120 @@ export class MapCollision {
     return false;
   }
 
+  /**
+   * Hitscan trace — stops at the first impassable line (p_map.c — PTR_ShootTraverse).
+   * @param {number} x1
+   * @param {number} y1
+   * @param {number} x2
+   * @param {number} y2
+   * @param {number} shootZ
+   * @param {number} slope
+   * @param {number} damage
+   * @returns {boolean} true if something was hit
+   */
+  shootTraverse(x1, y1, x2, y2, shootZ, slope, damage) {
+    const blockmap = this.level.blockmap;
+    if (((x1 - blockmap.orgX) & (MAPBLOCKSIZE - 1)) === 0) {
+      x1 += FRACUNIT;
+    }
+    if (((y1 - blockmap.orgY) & (MAPBLOCKSIZE - 1)) === 0) {
+      y1 += FRACUNIT;
+    }
+
+    this.trace.x = x1;
+    this.trace.y = y1;
+    this.trace.dx = x2 - x1;
+    this.trace.dy = y2 - y1;
+    this.interceptCount = 0;
+
+    let x1rel = x1 - blockmap.orgX;
+    let y1rel = y1 - blockmap.orgY;
+    let xt1 = x1rel >> MAPBLOCKSHIFT;
+    let yt1 = y1rel >> MAPBLOCKSHIFT;
+
+    const x2rel = x2 - blockmap.orgX;
+    const y2rel = y2 - blockmap.orgY;
+    const xt2 = x2rel >> MAPBLOCKSHIFT;
+    const yt2 = y2rel >> MAPBLOCKSHIFT;
+
+    let mapxstep = 0;
+    let mapystep = 0;
+    let xstep = 0;
+    let ystep = 0;
+    let partial;
+    let xintercept;
+    let yintercept;
+
+    if (xt2 > xt1) {
+      mapxstep = 1;
+      partial = FRACUNIT - ((x1rel >> MAPBTOFRAC) & (FRACUNIT - 1));
+      ystep = fixedDiv(y2 - y1, Math.abs(x2 - x1));
+    } else if (xt2 < xt1) {
+      mapxstep = -1;
+      partial = (x1rel >> MAPBTOFRAC) & (FRACUNIT - 1);
+      ystep = fixedDiv(y2 - y1, Math.abs(x2 - x1));
+    } else {
+      partial = FRACUNIT;
+      ystep = 256 * FRACUNIT;
+    }
+    yintercept = (y1rel >> MAPBTOFRAC) + fixedMul(partial, ystep);
+
+    if (yt2 > yt1) {
+      mapystep = 1;
+      partial = FRACUNIT - ((y1rel >> MAPBTOFRAC) & (FRACUNIT - 1));
+      xstep = fixedDiv(x2 - x1, Math.abs(y2 - y1));
+    } else if (yt2 < yt1) {
+      mapystep = -1;
+      partial = (y1rel >> MAPBTOFRAC) & (FRACUNIT - 1);
+      xstep = fixedDiv(x2 - x1, Math.abs(y2 - y1));
+    } else {
+      partial = FRACUNIT;
+      xstep = 256 * FRACUNIT;
+    }
+    xintercept = (x1rel >> MAPBTOFRAC) + fixedMul(partial, xstep);
+
+    let mapx = xt1;
+    let mapy = yt1;
+
+    for (let count = 0; count < 64; count++) {
+      const indices = blockmap.lineIndicesForBlock(mapx, mapy);
+      for (const lineIndex of indices) {
+        this.addLineIntercept(this.level.lines[lineIndex]);
+      }
+
+      if (mapx === xt2 && mapy === yt2) {
+        break;
+      }
+
+      if ((yintercept >> FRACBITS) === mapy) {
+        yintercept += ystep;
+        mapx += mapxstep;
+      } else if ((xintercept >> FRACBITS) === mapx) {
+        xintercept += xstep;
+        mapy += mapystep;
+      }
+    }
+
+    const active = this.intercepts.slice(0, this.interceptCount);
+    active.sort((a, b) => a.frac - b.frac);
+
+    for (let i = 0; i < active.length; i++) {
+      const li = active[i].line;
+      if (!li) {
+        continue;
+      }
+      if (!(li.flags & ML_TWOSIDED)) {
+        return true;
+      }
+      const opening = lineOpening(li);
+      if (opening.openrange <= 0) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   /** @param {import('./Player.js').Player} player */
   zMovement(player) {
     const mo = player.mo;

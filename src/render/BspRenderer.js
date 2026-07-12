@@ -22,11 +22,12 @@ export class BspRenderer {
   }
 
   /**
-   * @param {{ x: number, y: number, z: number, angle: number }} view
+   * @param {{ x: number, y: number, z: number, angle: number, extralight?: number }} view
    */
   renderView(view) {
     this.ctx.softwareRenderer.clear(0);
     this.ctx.setView(view);
+    this.ctx.extralight = view.extralight ?? 0;
     this.ctx.beginFrame();
     this.planes.clearPlanes();
 
