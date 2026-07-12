@@ -1,9 +1,8 @@
 import { PatchRenderer } from '../render/PatchRenderer.js';
-import { SCREENHEIGHT } from '../core/renderConstants.js';
+import { SCREENHEIGHT, SCREENWIDTH, SBARHEIGHT, VIEWHEIGHT } from '../core/renderConstants.js';
 import { NUM_AMMO } from '../game/weapons/weaponConstants.js';
 
-const ST_HEIGHT = 32;
-const ST_Y = SCREENHEIGHT - ST_HEIGHT;
+const ST_Y = SCREENHEIGHT - SBARHEIGHT;
 
 /** Right-side ammo counters (st_stuff.c). */
 const AMMO_POSITIONS = [
@@ -34,7 +33,9 @@ export class StatusBar {
    * @param {import('../game/Player.js').Player} player
    */
   draw(renderer, player) {
-    renderer.drawPatch(0, ST_Y, this.bar.header, this.bar.data);
+    const { header, data } = this.bar;
+    const barX = header.width > SCREENWIDTH ? -(SCREENWIDTH >> 1) : 0;
+    renderer.drawPatch(barX, ST_Y, header, data);
 
     for (let ammoType = 0; ammoType < NUM_AMMO; ammoType++) {
       this.drawNumber(
@@ -48,6 +49,7 @@ export class StatusBar {
   }
 
   /**
+   * Right-aligned number widget (st_lib.c — STlib_drawNum).
    * @param {import('../render/SoftwareRenderer.js').SoftwareRenderer} renderer
    * @param {number} x
    * @param {number} y
@@ -57,13 +59,27 @@ export class StatusBar {
   drawNumber(renderer, x, y, value, width) {
     let num = Math.max(0, value | 0);
     const digitWidth = this.digits[0].header.width;
+    let drawX = x;
 
-    for (let place = 0; place < width; place++) {
+    if (num === 0) {
+      renderer.drawPatch(
+        drawX - digitWidth,
+        y,
+        this.digits[0].header,
+        this.digits[0].data,
+      );
+      return;
+    }
+
+    while (num && width > 0) {
+      drawX -= digitWidth;
       const digit = num % 10;
-      num = (num / 10) | 0;
       const patch = this.digits[digit];
-      const drawX = x - (place + 1) * digitWidth;
       renderer.drawPatch(drawX, y, patch.header, patch.data);
+      num = (num / 10) | 0;
+      width--;
     }
   }
 }
+
+export { VIEWHEIGHT, ST_Y };

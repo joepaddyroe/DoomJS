@@ -1,6 +1,6 @@
 import { PatchRenderer } from '../render/PatchRenderer.js';
 import { FF_FRAMEMASK, PS_FLASH, PS_WEAPON, WEAPON_STATES, spriteLumpName } from '../game/weapons/weaponConstants.js';
-import { FRACUNIT, SCREENWIDTH } from '../core/renderConstants.js';
+import { FRACBITS, FRACUNIT, SCREENWIDTH } from '../core/renderConstants.js';
 
 /**
  * Weapon patch loader — reads sprite lumps from the WAD (e.g. PISGA0).
@@ -65,8 +65,8 @@ export class PspriteRenderer {
       const patch = this.sprites.getPatch(state.sprite, state.frame);
       const useFullbright = (state.frame & 0x8000) !== 0;
 
-      const screenX = (SCREENWIDTH >> 1) + ((psp.sx - (160 << 16)) >> 16);
-      const screenY = (psp.sy >> 16);
+      const screenX = (SCREENWIDTH >> 1) + ((psp.sx - (160 << FRACBITS)) >> FRACBITS);
+      const screenY = (psp.sy >> FRACBITS) - (patch.header.height >> 1);
 
       this.renderer.drawPatch(
         screenX,

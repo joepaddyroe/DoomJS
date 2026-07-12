@@ -1,5 +1,6 @@
 import { SoftwareRenderer } from './render/SoftwareRenderer.js';
 import { CanvasVideoOutput, DEFAULT_PIXEL_SCALE } from './platform/video/CanvasVideoOutput.js';
+import { VIEWHEIGHT } from './core/renderConstants.js';
 import { WadFile } from './wad/WadFile.js';
 import { GameAssets } from './wad/GameAssets.js';
 import { MapLoader } from './game/MapLoader.js';
@@ -17,13 +18,13 @@ import { createTrigTables } from './math/tables.js';
 
 const WAD_PATHS = ['./doom.wad', './assets/doom.wad', '../doom.wad'];
 const MAP_NAME = 'E1M1';
-const BUILD_TAG = '2026-07-12-weapons2';
+const BUILD_TAG = '2026-07-12-weapons5';
 
 const canvas = document.getElementById('screen');
 const output = new CanvasVideoOutput(canvas, undefined, undefined, DEFAULT_PIXEL_SCALE);
 const renderer = new SoftwareRenderer();
 
-renderer.initBuffer(renderer.screenWidth, renderer.screenHeight);
+renderer.initBuffer(renderer.screenWidth, VIEWHEIGHT);
 
 /** @type {BspRenderer|null} */
 let bspRenderer = null;

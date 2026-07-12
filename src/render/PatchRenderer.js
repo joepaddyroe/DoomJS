@@ -80,6 +80,67 @@ export class PatchRenderer {
   }
 
   /**
+   * Draw a wide patch onto a narrower screen by wrapping the trailing columns
+   * onto the left (426px STBAR → 320px screen).
+   * @param {number} x
+   * @param {number} y
+   * @param {PatchHeader} patch
+   * @param {Uint8Array} patchData
+   * @param {number} destWidth Target width in pixels (usually SCREENWIDTH)
+   * @param {Uint8Array|null} [colormap]
+   */
+  drawPatchWrapped(x, y, patch, patchData, destWidth, colormap = null) {
+    if (patch.width <= destWidth) {
+      this.drawPatch(x, y, patch, patchData, colormap ?? undefined);
+      return;
+    }
+
+    const screenWidth = this.buffer.screenWidth;
+    const screenHeight = this.buffer.screenHeight;
+    const pixels = this.buffer.pixels;
+    const extra = patch.width - destWidth;
+
+    y -= patch.topOffset;
+    x -= patch.leftOffset;
+
+    for (let screenCol = 0; screenCol < destWidth; screenCol++) {
+      const destX = x + screenCol;
+      if (destX < 0 || destX >= screenWidth) {
+        continue;
+      }
+
+      const patchCol = screenCol < extra
+        ? patch.width - extra + screenCol
+        : screenCol - extra;
+
+      let columnOffset = patch.columnOffsets[patchCol];
+      let topDelta = patchData[columnOffset];
+      let destTop = y * screenWidth + destX;
+
+      while (topDelta !== 0xff) {
+        const length = patchData[columnOffset + 1];
+        let sourceIndex = columnOffset + 3;
+        let dest = destTop + topDelta * screenWidth;
+        let count = length;
+
+        while (count--) {
+          const screenY = (dest - destTop) / screenWidth + y;
+          if (screenY >= 0 && screenY < screenHeight) {
+            const color = patchData[sourceIndex++];
+            pixels[dest] = colormap ? colormap[color] : color;
+          } else {
+            sourceIndex++;
+          }
+          dest += screenWidth;
+        }
+
+        columnOffset += length + 4;
+        topDelta = patchData[columnOffset];
+      }
+    }
+  }
+
+  /**
    * Draw a patch scaled in fixed-point (r_things.c projection scale).
    * @param {number} x
    * @param {number} y

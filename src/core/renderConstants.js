@@ -5,6 +5,8 @@
 export const SCREENWIDTH = 320;
 export const SCREENHEIGHT = 200;
 export const SBARHEIGHT = 32;
+/** 3D view height with status bar visible (r_main.c — default setblocks view). */
+export const VIEWHEIGHT = SCREENHEIGHT - SBARHEIGHT;
 
 export const FRACBITS = 16;
 export const FRACUNIT = 1 << FRACBITS;

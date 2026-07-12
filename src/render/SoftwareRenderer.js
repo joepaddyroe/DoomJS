@@ -197,6 +197,18 @@ export class SoftwareRenderer {
   drawPatchScaled(x, y, patch, patchData, colormap, scale) {
     this.patches.drawPatchScaled(x, y, patch, patchData, colormap, scale);
   }
+
+  /**
+   * @param {number} x
+   * @param {number} y
+   * @param {import('./PatchRenderer.js').PatchHeader} patch
+   * @param {Uint8Array} patchData
+   * @param {number} destWidth
+   * @param {Uint8Array|null} [colormap]
+   */
+  drawPatchWrapped(x, y, patch, patchData, destWidth, colormap = null) {
+    this.patches.drawPatchWrapped(x, y, patch, patchData, destWidth, colormap);
+  }
 }
 
 /**

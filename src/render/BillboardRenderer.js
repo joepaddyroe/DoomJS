@@ -1,4 +1,4 @@
-import { FRACBITS, FRACUNIT } from '../core/renderConstants.js';
+import { FRACBITS, FRACUNIT, VIEWHEIGHT } from '../core/renderConstants.js';
 import { fineAngleIndex } from '../core/angles.js';
 import { fixedDiv, fixedMul } from '../math/fixed.js';
 import { SPR_PUFF } from '../game/weapons/weaponConstants.js';
@@ -92,7 +92,7 @@ export class BillboardRenderer {
         viewCos,
         viewSin,
       );
-      if (!projected) {
+      if (!projected || projected.y >= VIEWHEIGHT) {
         continue;
       }
 
