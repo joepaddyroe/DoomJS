@@ -65,8 +65,9 @@ export class PspriteRenderer {
       const patch = this.sprites.getPatch(state.sprite, state.frame);
       const useFullbright = (state.frame & 0x8000) !== 0;
 
+      // r_things.c — R_DrawPSprite (1:1 scale): tx = psp->sx - 160*FRACUNIT, sy via patch offsets in drawPatch.
       const screenX = (SCREENWIDTH >> 1) + ((psp.sx - (160 << FRACBITS)) >> FRACBITS);
-      const screenY = (psp.sy >> FRACBITS) - (patch.header.height >> 1);
+      const screenY = psp.sy >> FRACBITS;
 
       this.renderer.drawPatch(
         screenX,
