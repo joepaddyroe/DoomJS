@@ -157,6 +157,9 @@ export class MapCollision {
 
   /** @param {import('./MapThingSpawner.js').MapThingMobj} thing */
   checkThing(thing) {
+    if (thing === this.tmthing) {
+      return true;
+    }
     if (thing.removed) {
       return true;
     }
