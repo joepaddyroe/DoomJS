@@ -29,6 +29,7 @@ export class Player {
   /** @param {import('./Mobj.js').Mobj} mo */
   constructor(mo) {
     this.mo = mo;
+    mo.playerObject = this;
     this.viewheight = VIEWHEIGHT;
     this.viewheightBase = VIEWHEIGHT;
     this.deltaviewheight = 0;
@@ -47,7 +48,7 @@ export class Player {
 
     this.refire = 0;
     this.attackdown = true;
-    this.usedown = true;
+    this.usedown = false;
     this.extralight = 0;
     this.bob = 0;
     this.leveltime = 0;

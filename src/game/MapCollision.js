@@ -385,8 +385,9 @@ export class MapCollision {
     this.tmymove = fixedMul(newlen, this.tables.finesine[lineIdx]);
   }
 
-  pathTraverse(x1, y1, x2, y2, flags) {
+  pathTraverse(x1, y1, x2, y2, flags, traverseFn = null) {
     const blockmap = this.level.blockmap;
+    this.interceptCount = 0;
     if (((x1 - blockmap.orgX) & (MAPBLOCKSIZE - 1)) === 0) {
       x1 += FRACUNIT;
     }
@@ -472,8 +473,10 @@ export class MapCollision {
     const active = this.intercepts.slice(0, this.interceptCount);
     active.sort((a, b) => a.frac - b.frac);
 
+    const traverse = traverseFn ?? ((incept) => this.slideTraverse(incept));
+
     for (let i = 0; i < active.length; i++) {
-      if (!this.slideTraverse(active[i])) {
+      if (!traverse(active[i])) {
         break;
       }
     }

@@ -2,7 +2,8 @@ import { MapCollision } from '../game/MapCollision.js';
 import { PlayerMovement } from '../game/PlayerMovement.js';
 import { Hitscan } from '../game/Hitscan.js';
 import { Psprites } from '../game/weapons/Psprites.js';
-import { thinkWeaponChange } from '../game/PlayerThink.js';
+import { thinkUse, thinkWeaponChange } from '../game/PlayerThink.js';
+import { ThinkerList } from '../game/spec/ThinkerList.js';
 import { PuffManager } from '../render/BillboardRenderer.js';
 
 /**
@@ -22,6 +23,12 @@ export class PlaySession {
     this.hitscan = new Hitscan(this.collision, this.puffs);
     this.psprites = new Psprites(this.hitscan, sound);
     this.psprites.setup(player);
+    this.thinkers = new ThinkerList();
+    this.doorCtx = {
+      thinkers: this.thinkers,
+      sectors: level.sectors,
+      sound,
+    };
   }
 
   /** @param {import('../game/TicCmd.js').TicCmd} cmd */
@@ -40,6 +47,8 @@ export class PlaySession {
     collision.xyMovement(player.mo, cmd);
     collision.zMovement(player);
     PlayerMovement.calcHeight(player);
+    thinkUse(player, this.doorCtx, collision);
+    this.thinkers.runAll();
     thinkWeaponChange(player);
     this.psprites.think(player);
     this.puffs.tick();

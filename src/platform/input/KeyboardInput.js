@@ -3,7 +3,7 @@ import {
   FORWARDMOVE,
   SIDEMOVE,
 } from '../../core/gameConstants.js';
-import { BT_ATTACK, weaponChangeButtons } from '../../core/inputButtons.js';
+import { BT_ATTACK, BT_USE, weaponChangeButtons } from '../../core/inputButtons.js';
 import { createTicCmd } from '../../game/TicCmd.js';
 
 /**
@@ -52,6 +52,7 @@ export class KeyboardInput {
       || code === 'KeyW' || code === 'KeyA' || code === 'KeyS' || code === 'KeyD'
       || code === 'ControlLeft' || code === 'ControlRight'
       || code === 'Space'
+      || code === 'KeyE' || code === 'Enter'
       || (code >= 'Digit1' && code <= 'Digit7');
   }
 
@@ -86,6 +87,9 @@ export class KeyboardInput {
     }
     if (this.keys.has('ControlLeft') || this.keys.has('ControlRight') || this.keys.has('Space')) {
       cmd.buttons |= BT_ATTACK;
+    }
+    if (this.keys.has('KeyE') || this.keys.has('Enter')) {
+      cmd.buttons |= BT_USE;
     }
 
     for (let weapon = 0; weapon < 7; weapon++) {

@@ -102,7 +102,7 @@ async function start() {
     console.log(
       `DoomJS ${BUILD_TAG} — ${MAP_NAME} at (${pos.x}, ${pos.y}). `
       + `Sound: ${soundSystem?.driverId ?? 'none'} (?sound=webaudio|howler|null). `
-      + `${output.gameWidth}×${output.gameHeight} @ ${output.pixelScale}× (window ${output.windowWidth}×${output.windowHeight}). Click canvas, WASD + arrows, 1/2/3 weapons, Ctrl/Space fire.`,
+      + `${output.gameWidth}×${output.gameHeight} @ ${output.pixelScale}× (window ${output.windowWidth}×${output.windowHeight}). Click canvas, WASD + arrows, E use, 1/2/3 weapons, Ctrl/Space fire.`,
     );
 
     gameLoop = new GameLoop({

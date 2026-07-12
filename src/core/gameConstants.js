@@ -55,6 +55,13 @@ export const ANGLETURN = [640, 1280, 320];
 /** Thrust scale (p_user.c — cmd->forwardmove * 2048). */
 export const THRUST_SCALE = 2048;
 
+/** Use line reach (p_local.h — USERANGE). */
+export const USERANGE = 64 * FRACUNIT;
+
+/** Door movement speed / wait (p_spec.h). */
+export const VDOORSPEED = FRACUNIT * 2;
+export const VDOORWAIT = 150;
+
 /** Path trace flags (p_maputl.c). */
 export const PT_ADDLINES = 1;
 

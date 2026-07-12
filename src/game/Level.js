@@ -24,12 +24,19 @@ export class Level {
       y: vertex.y * scale,
     }));
 
-    level.sectors = map.sectors.map((sector) => ({
+    level.sectors = map.sectors.map((sector, index) => ({
+      index,
       floorHeight: sector.floorHeight * scale,
       ceilingHeight: sector.ceilingHeight * scale,
       floorPic: textures.flatIndexForName(sector.floorPic),
       ceilingPic: textures.flatIndexForName(sector.ceilingPic),
       lightLevel: sector.lightLevel,
+      special: sector.special,
+      tag: sector.tag,
+      /** @type {object|null} */
+      specialdata: null,
+      /** @type {import('./Level.js').LevelLine[]} */
+      lines: [],
     }));
 
     level.sides = map.sides.map((side) => ({
@@ -41,10 +48,11 @@ export class Level {
       sector: level.sectors[side.sectorIndex],
     }));
 
-    level.lines = map.lines.map((line) => {
+    level.lines = map.lines.map((line, lineIndex) => {
       const v1 = level.vertices[line.v1];
       const v2 = level.vertices[line.v2];
       const entry = {
+        index: lineIndex,
         v1,
         v2,
         dx: v2.x - v1.x,
@@ -63,6 +71,15 @@ export class Level {
       calcLineBounds(entry);
       return entry;
     });
+
+    for (const line of level.lines) {
+      if (line.sideFront) {
+        line.sideFront.sector.lines.push(line);
+      }
+      if (line.sideBack) {
+        line.sideBack.sector.lines.push(line);
+      }
+    }
 
     level.segs = map.segs.map((seg) => {
       const line = level.lines[seg.lineIndex];
