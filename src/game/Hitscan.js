@@ -25,7 +25,20 @@ export class Hitscan {
   /** @param {import('./Mobj.js').Mobj|import('./MapThingSpawner.js').MapThingMobj} mo */
   bulletSlopeFor(mo) {
     if (mo.playerObject && this.player) {
-      this.bulletSlope = this.collision.aimLineAttack(mo, mo.angle, MISSILERANGE);
+      let angle = mo.angle >>> 0;
+      this.bulletSlope = this.collision.aimLineAttack(mo, angle, MISSILERANGE);
+      if (this.bulletSlope) {
+        return this.bulletSlope;
+      }
+
+      angle = (angle + (1 << 26)) >>> 0;
+      this.bulletSlope = this.collision.aimLineAttack(mo, angle, MISSILERANGE);
+      if (this.bulletSlope) {
+        return this.bulletSlope;
+      }
+
+      angle = (mo.angle - (1 << 26)) >>> 0;
+      this.bulletSlope = this.collision.aimLineAttack(mo, angle, MISSILERANGE);
     } else {
       this.bulletSlope = 0;
     }

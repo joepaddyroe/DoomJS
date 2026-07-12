@@ -43,6 +43,10 @@ import { createTrigTables } from '../math/tables.js';
 import { pointToAngle } from '../math/viewMath.js';
 import { MF_PICKUP, MF_SHOOTABLE, MF_SOLID, MF_SPECIAL } from './mobjFlags.js';
 
+/** Vertical auto-aim cone (p_map.c — P_AimLineAttack topslope/bottomslope). */
+const AIM_TOP_SLOPE = ((100 * FRACUNIT) / 160) | 0;
+const AIM_BOTTOM_SLOPE = ((-100 * FRACUNIT) / 160) | 0;
+
 /**
  * Map collision and movement (p_map.c, p_maputl.c, p_mobj.c).
  */
@@ -592,23 +596,15 @@ export class MapCollision {
   }
 
   /**
-   * Hitscan trace — stops at the first blocking line or shootable mobj.
+   * Build sorted line/thing intercepts along a horizontal shoot trace.
    * @param {number} x1
    * @param {number} y1
    * @param {number} x2
    * @param {number} y2
-   * @param {number} shootZ
-   * @param {number} slope
-   * @param {number} attackrange
-   * @param {{ shootThing?: object|null, damage?: number, aimMode?: boolean, onThingHit?: (thing: object, x: number, y: number, z: number) => void, onAimThing?: (thing: object, dist: number) => void }|null} [options]
-   * @returns {{ hit: boolean, x?: number, y?: number, z?: number, thing?: object }}
+   * @param {object|null} shootThing
+   * @returns {{ frac: number, isaline: boolean, line: import('./Level.js').LevelLine|null, thing: object|null }[]}
    */
-  shootTraverse(x1, y1, x2, y2, shootZ, slope, attackrange, options = null) {
-    const shootThing = options?.shootThing ?? null;
-    const damage = options?.damage ?? 0;
-    const aimMode = options?.aimMode ?? false;
-    const onThingHit = options?.onThingHit ?? null;
-    const onAimThing = options?.onAimThing ?? null;
+  collectShootIntercepts(x1, y1, x2, y2, shootThing) {
     const blockmap = this.level.blockmap;
     if (((x1 - blockmap.orgX) & (MAPBLOCKSIZE - 1)) === 0) {
       x1 += FRACUNIT;
@@ -697,6 +693,29 @@ export class MapCollision {
 
     const active = this.intercepts.slice(0, this.interceptCount);
     active.sort((a, b) => a.frac - b.frac);
+    return active;
+  }
+
+  /**
+   * Hitscan trace — stops at the first blocking line or shootable mobj.
+   * @param {number} x1
+   * @param {number} y1
+   * @param {number} x2
+   * @param {number} y2
+   * @param {number} shootZ
+   * @param {number} slope
+   * @param {number} attackrange
+   * @param {{ shootThing?: object|null, damage?: number, aimMode?: boolean, onThingHit?: (thing: object, x: number, y: number, z: number) => void, onAimThing?: (thing: object, dist: number) => void }|null} [options]
+   * @returns {{ hit: boolean, x?: number, y?: number, z?: number, thing?: object }}
+   */
+  shootTraverse(x1, y1, x2, y2, shootZ, slope, attackrange, options = null) {
+    const shootThing = options?.shootThing ?? null;
+    const damage = options?.damage ?? 0;
+    const aimMode = options?.aimMode ?? false;
+    const onThingHit = options?.onThingHit ?? null;
+    const onAimThing = options?.onAimThing ?? null;
+
+    const active = this.collectShootIntercepts(x1, y1, x2, y2, shootThing);
     const aimslope = slope;
 
     for (let i = 0; i < active.length; i++) {
@@ -879,17 +898,79 @@ export class MapCollision {
     const y2 = mo.y + ((distance >> FRACBITS) * this.tables.finesine[idx]) | 0;
     const shootZ = mo.z + (mo.height >> 1) + 8 * FRACUNIT;
 
+    let topSlope = AIM_TOP_SLOPE;
+    let bottomSlope = AIM_BOTTOM_SLOPE;
     let aimSlope = 0;
-    this.shootTraverse(mo.x, mo.y, x2, y2, shootZ, 0, distance, {
-      shootThing: mo,
-      damage: 0,
-      aimMode: true,
-      onAimThing: (thing, dist) => {
-        const top = fixedDiv(thing.z + thing.height - shootZ, dist);
-        const bottom = fixedDiv(thing.z - shootZ, dist);
-        aimSlope = (top + bottom) >> 1;
-      },
-    });
+
+    const active = this.collectShootIntercepts(mo.x, mo.y, x2, y2, mo);
+
+    for (let i = 0; i < active.length; i++) {
+      const incept = active[i];
+      if (incept.isaline) {
+        const li = incept.line;
+        if (!li || !(li.flags & ML_TWOSIDED)) {
+          break;
+        }
+
+        const opening = lineOpening(li);
+        if (opening.openrange <= 0) {
+          break;
+        }
+
+        const dist = fixedMul(distance, incept.frac);
+        if (li.frontsector && li.backsector
+          && li.frontsector.floorHeight !== li.backsector.floorHeight) {
+          const lineSlope = fixedDiv(opening.openbottom - shootZ, dist);
+          if (lineSlope > bottomSlope) {
+            bottomSlope = lineSlope;
+          }
+        }
+
+        if (li.frontsector && li.backsector
+          && li.frontsector.ceilingHeight !== li.backsector.ceilingHeight) {
+          const lineSlope = fixedDiv(opening.opentop - shootZ, dist);
+          if (lineSlope < topSlope) {
+            topSlope = lineSlope;
+          }
+        }
+
+        if (topSlope <= bottomSlope) {
+          break;
+        }
+        continue;
+      }
+
+      const thing = incept.thing;
+      if (!thing || thing === mo || !(thing.flags & MF_SHOOTABLE)) {
+        continue;
+      }
+
+      const dist = fixedMul(distance, incept.frac);
+      if (!dist) {
+        continue;
+      }
+
+      let thingTopSlope = fixedDiv(thing.z + thing.height - shootZ, dist);
+      if (thingTopSlope < bottomSlope) {
+        continue;
+      }
+
+      let thingBottomSlope = fixedDiv(thing.z - shootZ, dist);
+      if (thingBottomSlope > topSlope) {
+        continue;
+      }
+
+      if (thingTopSlope > topSlope) {
+        thingTopSlope = topSlope;
+      }
+      if (thingBottomSlope < bottomSlope) {
+        thingBottomSlope = bottomSlope;
+      }
+
+      aimSlope = (thingTopSlope + thingBottomSlope) >> 1;
+      break;
+    }
+
     return aimSlope;
   }
 
