@@ -25,7 +25,6 @@ export class SfxBank {
 
       const index = wad.indexOf(lumpName);
       if (index < 0) {
-        console.warn(`SfxBank: missing lump ${lumpName} for ${name}`);
         continue;
       }
 

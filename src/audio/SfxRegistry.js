@@ -6,7 +6,6 @@ export const SFX_LUMPS = {
   pistol: 'DSPISTOL',
   shotgn: 'DSSHOTGN',
   sgcock: 'DSSGCOCK',
-  clow: 'DSCLOW',
   itemup: 'DSITEMUP',
   wpnup: 'DSWPNUP',
   oof: 'DSOOF',

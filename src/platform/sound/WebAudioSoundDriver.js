@@ -5,6 +5,7 @@ const MAX_CHANNELS = 8;
 
 /**
  * Web Audio API SFX driver (i_sound.c mixer via AudioBufferSourceNode).
+ * AudioContext is created on first unlock() after a user gesture.
  */
 export class WebAudioSoundDriver extends SoundDriver {
   constructor() {
@@ -21,20 +22,10 @@ export class WebAudioSoundDriver extends SoundDriver {
     return 'webaudio';
   }
 
-  async init() {
-    if (!this.context) {
-      this.context = new AudioContext();
-    }
-    if (this.context.state === 'suspended') {
-      await this.context.resume();
-    }
-  }
-
   /** @param {Map<string, import('../../audio/SoundDriver.js').SfxClip>} clips */
   async bindClips(clips) {
-    await this.init();
     if (!this.context) {
-      return;
+      this.context = new AudioContext();
     }
 
     this.buffers.clear();
@@ -43,15 +34,18 @@ export class WebAudioSoundDriver extends SoundDriver {
     }
   }
 
-  unlock() {
-    if (this.context?.state === 'suspended') {
-      this.context.resume();
+  async unlock() {
+    if (!this.context) {
+      return;
+    }
+    if (this.context.state === 'suspended') {
+      await this.context.resume();
     }
   }
 
   /** @param {string} name @param {{ volume?: number, pan?: number }} [options] */
   start(name, options = {}) {
-    if (!this.context) {
+    if (!this.context || this.context.state !== 'running') {
       return;
     }
 

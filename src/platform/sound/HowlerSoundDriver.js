@@ -5,7 +5,6 @@ const HOWLER_CDN = 'https://cdn.jsdelivr.net/npm/howler@2.2.4/dist/howler.min.js
 
 /**
  * Howler.js SFX driver — loads decoded WAD clips as WAV blob URLs.
- * Requires Howler on window (loaded via script tag or loadHowler()).
  */
 export class HowlerSoundDriver extends SoundDriver {
   constructor() {
@@ -20,10 +19,6 @@ export class HowlerSoundDriver extends SoundDriver {
 
   get id() {
     return 'howler';
-  }
-
-  async init() {
-    await this.ensureHowler();
   }
 
   async ensureHowler() {
@@ -51,7 +46,7 @@ export class HowlerSoundDriver extends SoundDriver {
 
   /** @param {Map<string, import('../../audio/SoundDriver.js').SfxClip>} clips */
   async bindClips(clips) {
-    await this.init();
+    await this.ensureHowler();
     this.disposeSounds();
 
     const Howl = globalThis.Howl;
@@ -69,8 +64,8 @@ export class HowlerSoundDriver extends SoundDriver {
     }
   }
 
-  unlock() {
-    // Howler handles context resume on first play; no-op here.
+  async unlock() {
+    // Howler resumes its internal context on first play after user gesture.
   }
 
   /** @param {string} name @param {{ volume?: number, pan?: number }} [options] */

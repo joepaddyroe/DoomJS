@@ -11,6 +11,7 @@ export class SoundSystem {
     this.driver = driver;
     this.bank = new SfxBank();
     this.sfxVolume = 1;
+    this.ready = false;
   }
 
   /** @returns {string} Active driver id. */
@@ -19,18 +20,23 @@ export class SoundSystem {
   }
 
   /**
+   * Parse SFX lumps from the WAD. Does not touch the audio device yet.
    * @param {import('../wad/WadFile.js').WadFile} wad
-   * @returns {Promise<void>}
    */
-  async load(wad) {
+  load(wad) {
     this.bank.load(wad);
-    await this.driver.init();
-    await this.driver.bindClips(this.bank.clips);
   }
 
-  /** Resume audio after user gesture. */
-  unlock() {
-    this.driver.unlock();
+  /**
+   * Call after a user gesture — creates/resumes audio and uploads clips.
+   * @returns {Promise<void>}
+   */
+  async unlock() {
+    if (!this.ready) {
+      await this.driver.bindClips(this.bank.clips);
+      this.ready = true;
+    }
+    await this.driver.unlock();
   }
 
   /** @param {number} volume 0–1 */

@@ -20,7 +20,7 @@ import { createSoundDriver, soundDriverFromQuery } from './platform/sound/create
 
 const WAD_PATHS = ['./doom.wad', './assets/doom.wad', '../doom.wad'];
 const MAP_NAME = 'E1M1';
-const BUILD_TAG = '2026-07-12-sound1';
+const BUILD_TAG = '2026-07-12-sound2';
 const SOUND_DRIVER = soundDriverFromQuery();
 
 const canvas = document.getElementById('screen');
@@ -78,7 +78,7 @@ async function start() {
     statusBar = new StatusBar(wad);
 
     soundSystem = new SoundSystem(createSoundDriver(SOUND_DRIVER));
-    await soundSystem.load(wad);
+    soundSystem.load(wad);
 
     if (!playerStart) {
       throw new Error('No player start found on map');
@@ -90,7 +90,7 @@ async function start() {
 
     canvas.addEventListener('click', () => {
       input.setEnabled(true);
-      soundSystem?.unlock();
+      void soundSystem?.unlock();
       canvas.focus();
     });
     canvas.setAttribute('tabindex', '0');
