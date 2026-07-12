@@ -2,6 +2,8 @@
  * @typedef {import('./ViewBuffer.js').ViewBuffer} ViewBuffer
  */
 
+import { FRACUNIT } from '../core/renderConstants.js';
+
 /**
  * @typedef {Object} PatchHeader
  * @property {number} width
@@ -69,6 +71,65 @@ export class PatchRenderer {
             sourceIndex++;
           }
           dest += screenWidth;
+        }
+
+        columnOffset += length + 4;
+        topDelta = patchData[columnOffset];
+      }
+    }
+  }
+
+  /**
+   * Draw a patch scaled in fixed-point (r_things.c projection scale).
+   * @param {number} x
+   * @param {number} y
+   * @param {PatchHeader} patch
+   * @param {Uint8Array} patchData
+   * @param {Uint8Array|null} colormap
+   * @param {number} scale Fixed-point scale (FRACUNIT = 1:1)
+   */
+  drawPatchScaled(x, y, patch, patchData, colormap, scale) {
+    if (scale >= (FRACUNIT * 3) / 4 && scale <= (FRACUNIT * 5) / 4) {
+      this.drawPatch(x, y, patch, patchData, colormap ?? undefined);
+      return;
+    }
+
+    const screenWidth = this.buffer.screenWidth;
+    const screenHeight = this.buffer.screenHeight;
+    const pixels = this.buffer.pixels;
+    const destWidth = Math.max(1, (patch.width * scale) >> 16);
+    const destHeight = Math.max(1, (patch.height * scale) >> 16);
+    const startX = x - ((patch.leftOffset * scale) >> 16);
+    const startY = y - ((patch.topOffset * scale) >> 16);
+
+    if (startX + destWidth <= 0 || startX >= screenWidth || startY + destHeight <= 0) {
+      return;
+    }
+
+    for (let destCol = 0; destCol < destWidth; destCol++) {
+      const screenX = startX + destCol;
+      if (screenX < 0 || screenX >= screenWidth) {
+        continue;
+      }
+
+      const srcCol = Math.min(patch.width - 1, (destCol * patch.width) / destWidth | 0);
+      let columnOffset = patch.columnOffsets[srcCol];
+      let topDelta = patchData[columnOffset];
+
+      while (topDelta !== 0xff) {
+        const length = patchData[columnOffset + 1];
+        let sourceIndex = columnOffset + 3;
+        const destTop = startY + ((topDelta * scale) >> 16);
+        const destRun = Math.max(1, (length * scale) >> 16);
+
+        for (let row = 0; row < destRun; row++) {
+          const screenY = destTop + row;
+          if (screenY < 0 || screenY >= screenHeight) {
+            continue;
+          }
+          const srcRow = Math.min(length - 1, (row * length) / destRun | 0);
+          const color = patchData[sourceIndex + srcRow];
+          pixels[screenY * screenWidth + screenX] = colormap ? colormap[color] : color;
         }
 
         columnOffset += length + 4;

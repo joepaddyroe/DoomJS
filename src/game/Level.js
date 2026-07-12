@@ -17,6 +17,7 @@ export class Level {
     const level = new Level();
     const scale = FRACUNIT;
     level.blockmap = blockmap;
+    level.skyFlatNum = textures.skyFlatNum;
 
     level.vertices = map.vertices.map((vertex) => ({
       x: vertex.x * scale,

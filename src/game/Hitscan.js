@@ -10,9 +10,11 @@ import { createTrigTables } from '../math/tables.js';
 export class Hitscan {
   /**
    * @param {import('../MapCollision.js').MapCollision} collision
+   * @param {import('../render/BillboardRenderer.js').PuffManager} puffs
    */
-  constructor(collision) {
+  constructor(collision, puffs) {
     this.collision = collision;
+    this.puffs = puffs;
     this.tables = createTrigTables();
     this.bulletSlope = 0;
   }
@@ -39,6 +41,13 @@ export class Hitscan {
     return damage;
   }
 
+  /** @param {import('../Mobj.js').Mobj} mo */
+  fireShotgun(mo) {
+    for (let i = 0; i < 7; i++) {
+      this.gunShot(mo, false);
+    }
+  }
+
   /**
    * @param {import('../Mobj.js').Mobj} mo
    * @param {number} angle
@@ -52,6 +61,18 @@ export class Hitscan {
     const y2 = mo.y + ((distance >> FRACBITS) * this.tables.finesine[idx]) | 0;
     const shootZ = mo.z + (mo.height >> 1) + 8 * FRACUNIT;
 
-    this.collision.shootTraverse(mo.x, mo.y, x2, y2, shootZ, slope, damage);
+    const hit = this.collision.shootTraverse(
+      mo.x,
+      mo.y,
+      x2,
+      y2,
+      shootZ,
+      slope,
+      distance,
+    );
+
+    if (hit.hit && hit.x !== undefined && hit.y !== undefined && hit.z !== undefined) {
+      this.puffs.spawn(hit.x, hit.y, hit.z);
+    }
   }
 }

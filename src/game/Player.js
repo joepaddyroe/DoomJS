@@ -4,11 +4,13 @@ import { createTicCmd } from './TicCmd.js';
 import { createPsprite } from './weapons/Psprites.js';
 import {
   AM_CLIP,
+  AM_SHELL,
   NUM_AMMO,
   NUM_PSPRITES,
   NUM_WEAPONS,
   WP_NOCHANGE,
   WP_PISTOL,
+  WP_SHOTGUN,
 } from './weapons/weaponConstants.js';
 
 /**
@@ -38,8 +40,10 @@ export class Player {
     this.pendingweapon = WP_NOCHANGE;
     this.weaponowned = new Array(NUM_WEAPONS).fill(false);
     this.weaponowned[WP_PISTOL] = true;
+    this.weaponowned[WP_SHOTGUN] = true;
     this.ammo = new Array(NUM_AMMO).fill(0);
     this.ammo[AM_CLIP] = 50;
+    this.ammo[AM_SHELL] = 50;
 
     this.refire = 0;
     this.attackdown = true;

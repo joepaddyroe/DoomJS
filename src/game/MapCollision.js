@@ -544,17 +544,17 @@ export class MapCollision {
   }
 
   /**
-   * Hitscan trace — stops at the first impassable line (p_map.c — PTR_ShootTraverse).
+   * Hitscan trace — stops at the first blocking line (p_map.c — PTR_ShootTraverse).
    * @param {number} x1
    * @param {number} y1
    * @param {number} x2
    * @param {number} y2
    * @param {number} shootZ
    * @param {number} slope
-   * @param {number} damage
-   * @returns {boolean} true if something was hit
+   * @param {number} attackrange
+   * @returns {{ hit: boolean, x?: number, y?: number, z?: number }}
    */
-  shootTraverse(x1, y1, x2, y2, shootZ, slope, damage) {
+  shootTraverse(x1, y1, x2, y2, shootZ, slope, attackrange) {
     const blockmap = this.level.blockmap;
     if (((x1 - blockmap.orgX) & (MAPBLOCKSIZE - 1)) === 0) {
       x1 += FRACUNIT;
@@ -640,21 +640,74 @@ export class MapCollision {
     const active = this.intercepts.slice(0, this.interceptCount);
     active.sort((a, b) => a.frac - b.frac);
 
+    const aimslope = slope;
+
     for (let i = 0; i < active.length; i++) {
-      const li = active[i].line;
+      const incept = active[i];
+      const li = incept.line;
       if (!li) {
         continue;
       }
+
       if (!(li.flags & ML_TWOSIDED)) {
-        return true;
+        return this.shootHitLine(incept, shootZ, aimslope, attackrange);
       }
+
       const opening = lineOpening(li);
+      const dist = fixedMul(attackrange, incept.frac);
+
+      if (li.frontsector && li.backsector
+        && li.frontsector.floorHeight !== li.backsector.floorHeight) {
+        const lineSlope = fixedDiv(opening.openbottom - shootZ, dist);
+        if (lineSlope > aimslope) {
+          return this.shootHitLine(incept, shootZ, aimslope, attackrange);
+        }
+      }
+
+      if (li.frontsector && li.backsector
+        && li.frontsector.ceilingHeight !== li.backsector.ceilingHeight) {
+        const lineSlope = fixedDiv(opening.opentop - shootZ, dist);
+        if (lineSlope < aimslope) {
+          return this.shootHitLine(incept, shootZ, aimslope, attackrange);
+        }
+      }
+
       if (opening.openrange <= 0) {
-        return true;
+        return this.shootHitLine(incept, shootZ, aimslope, attackrange);
       }
     }
 
-    return false;
+    return { hit: false };
+  }
+
+  /**
+   * @param {{ frac: number, line: import('./Level.js').LevelLine|null }} incept
+   * @param {number} shootZ
+   * @param {number} aimslope
+   * @param {number} attackrange
+   */
+  shootHitLine(incept, shootZ, aimslope, attackrange) {
+    const li = incept.line;
+    if (!li) {
+      return { hit: false };
+    }
+
+    let frac = incept.frac - fixedDiv(4 * FRACUNIT, attackrange);
+    const x = this.trace.x + fixedMul(this.trace.dx, frac);
+    const y = this.trace.y + fixedMul(this.trace.dy, frac);
+    const z = shootZ + fixedMul(aimslope, fixedMul(frac, attackrange));
+
+    const skyFlat = this.level.skyFlatNum;
+    if (li.frontsector && li.frontsector.ceilingPic === skyFlat) {
+      if (z > li.frontsector.ceilingHeight) {
+        return { hit: false };
+      }
+      if (li.backsector && li.backsector.ceilingPic === skyFlat) {
+        return { hit: false };
+      }
+    }
+
+    return { hit: true, x, y, z };
   }
 
   /** @param {import('./Player.js').Player} player */

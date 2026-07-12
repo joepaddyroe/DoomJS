@@ -2,6 +2,8 @@ import { MapCollision } from '../game/MapCollision.js';
 import { PlayerMovement } from '../game/PlayerMovement.js';
 import { Hitscan } from '../game/Hitscan.js';
 import { Psprites } from '../game/weapons/Psprites.js';
+import { thinkWeaponChange } from '../game/PlayerThink.js';
+import { PuffManager } from '../render/BillboardRenderer.js';
 
 /**
  * Active play state: player simulation + view for rendering.
@@ -15,7 +17,8 @@ export class PlaySession {
     this.level = level;
     this.player = player;
     this.collision = new MapCollision(level);
-    this.hitscan = new Hitscan(this.collision);
+    this.puffs = new PuffManager();
+    this.hitscan = new Hitscan(this.collision, this.puffs);
     this.psprites = new Psprites(this.hitscan);
     this.psprites.setup(player);
   }
@@ -36,7 +39,9 @@ export class PlaySession {
     collision.xyMovement(player.mo, cmd);
     collision.zMovement(player);
     PlayerMovement.calcHeight(player);
+    thinkWeaponChange(player);
     this.psprites.think(player);
+    this.puffs.tick();
   }
 
   /** @returns {{ x: number, y: number, z: number, angle: number, extralight: number }} */

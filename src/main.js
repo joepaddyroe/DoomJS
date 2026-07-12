@@ -11,10 +11,13 @@ import { PlaySession } from './app/PlaySession.js';
 import { GameLoop } from './app/GameLoop.js';
 import { KeyboardInput } from './platform/input/KeyboardInput.js';
 import { SpritePatches, PspriteRenderer } from './wad/SpritePatches.js';
+import { BillboardRenderer } from './render/BillboardRenderer.js';
+import { StatusBar } from './render/StatusBar.js';
+import { createTrigTables } from './math/tables.js';
 
 const WAD_PATHS = ['./doom.wad', './assets/doom.wad', '../doom.wad'];
 const MAP_NAME = 'E1M1';
-const BUILD_TAG = '2026-07-12-weapons1';
+const BUILD_TAG = '2026-07-12-weapons2';
 
 const canvas = document.getElementById('screen');
 const output = new CanvasVideoOutput(canvas, undefined, undefined, DEFAULT_PIXEL_SCALE);
@@ -32,6 +35,11 @@ let input = null;
 let gameLoop = null;
 /** @type {PspriteRenderer|null} */
 let pspriteRenderer = null;
+/** @type {BillboardRenderer|null} */
+let billboardRenderer = null;
+/** @type {StatusBar|null} */
+let statusBar = null;
+const trigTables = createTrigTables();
 
 async function loadWad() {
   let lastError = null;
@@ -60,6 +68,8 @@ async function start() {
     bspRenderer = new BspRenderer(level, textures, renderer, assets.colormaps);
     const spritePatches = new SpritePatches(wad);
     pspriteRenderer = new PspriteRenderer(renderer, spritePatches, assets.colormaps);
+    billboardRenderer = new BillboardRenderer(renderer, spritePatches, assets.colormaps);
+    statusBar = new StatusBar(wad);
 
     if (!playerStart) {
       throw new Error('No player start found on map');
@@ -81,7 +91,7 @@ async function start() {
     const pos = player.mapPosition();
     console.log(
       `DoomJS ${BUILD_TAG} — ${MAP_NAME} at (${pos.x}, ${pos.y}). `
-      + `320×200 @ ${DEFAULT_PIXEL_SCALE}× scale. Click canvas, WASD + arrows, Ctrl/Space to fire.`,
+      + `320×200 @ ${DEFAULT_PIXEL_SCALE}× scale. Click canvas, WASD + arrows, 1/2/3 weapons, Ctrl/Space fire.`,
     );
 
     gameLoop = new GameLoop({
@@ -96,8 +106,20 @@ async function start() {
           return;
         }
         bspRenderer.renderView(playSession.view());
+        if (billboardRenderer) {
+          billboardRenderer.drawPuffs(
+            playSession.puffs.puffs,
+            playSession.view(),
+            bspRenderer.ctx.viewSetup,
+            trigTables,
+            playSession.player.extralight,
+          );
+        }
         if (pspriteRenderer) {
           pspriteRenderer.draw(playSession.player, playSession.player.extralight);
+        }
+        if (statusBar) {
+          statusBar.draw(renderer, playSession.player);
         }
         output.present(renderer.pixels);
       },
@@ -114,8 +136,20 @@ async function start() {
 window.addEventListener('resize', () => {
   if (playSession && bspRenderer) {
     bspRenderer.renderView(playSession.view());
+    if (billboardRenderer) {
+      billboardRenderer.drawPuffs(
+        playSession.puffs.puffs,
+        playSession.view(),
+        bspRenderer.ctx.viewSetup,
+        trigTables,
+        playSession.player.extralight,
+      );
+    }
     if (pspriteRenderer) {
       pspriteRenderer.draw(playSession.player, playSession.player.extralight);
+    }
+    if (statusBar) {
+      statusBar.draw(renderer, playSession.player);
     }
     output.present(renderer.pixels);
   }

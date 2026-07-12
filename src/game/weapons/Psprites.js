@@ -5,6 +5,7 @@ import { FINEANGLES, FINEMASK } from '../../core/angles.js';
 import {
   AM_CLIP,
   AM_NOAMMO,
+  AM_SHELL,
   LOWERSPEED,
   NUM_PSPRITES,
   PS_FLASH,
@@ -15,8 +16,10 @@ import {
   WEAPONTOP,
   WEAPON_INFO,
   WEAPON_STATES,
+  WP_FIST,
   WP_NOCHANGE,
   WP_PISTOL,
+  WP_SHOTGUN,
 } from './weaponConstants.js';
 
 /**
@@ -136,6 +139,9 @@ export class Psprites {
       case 'FirePistol':
         this.firePistol(player, psp);
         break;
+      case 'FireShotgun':
+        this.fireShotgun(player, psp);
+        break;
       case 'ReFire':
         this.reFire(player, psp);
         break;
@@ -144,6 +150,9 @@ export class Psprites {
         break;
       case 'Light1':
         player.extralight = 1;
+        break;
+      case 'Light2':
+        player.extralight = 2;
         break;
       default:
         break;
@@ -169,8 +178,15 @@ export class Psprites {
       return true;
     }
 
-    player.pendingweapon = WP_PISTOL;
-    if (player.readyweapon !== WP_PISTOL) {
+    if (player.weaponowned[WP_SHOTGUN] && player.ammo[AM_SHELL] > 0) {
+      player.pendingweapon = WP_SHOTGUN;
+    } else if (player.ammo[AM_CLIP] > 0) {
+      player.pendingweapon = WP_PISTOL;
+    } else {
+      player.pendingweapon = WP_FIST;
+    }
+
+    if (player.readyweapon !== player.pendingweapon) {
       this.setPsprite(player, PS_WEAPON, WEAPON_INFO[player.readyweapon].downstate);
     }
     return false;
@@ -242,6 +258,15 @@ export class Psprites {
     this.setPsprite(player, PS_FLASH, info.flashstate);
     this.hitscan.bulletSlopeFor(player.mo);
     this.hitscan.gunShot(player.mo, !player.refire);
+  }
+
+  /** @param {import('../Player.js').Player} player @param {Psprite} psp */
+  fireShotgun(player, psp) {
+    const info = WEAPON_INFO[player.readyweapon];
+    player.ammo[info.ammo]--;
+    this.setPsprite(player, PS_FLASH, info.flashstate);
+    this.hitscan.bulletSlopeFor(player.mo);
+    this.hitscan.fireShotgun(player.mo);
   }
 
   /** @param {import('../Player.js').Player} player @param {Psprite} psp */
