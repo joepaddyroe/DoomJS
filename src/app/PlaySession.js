@@ -5,6 +5,8 @@ import { Psprites } from '../game/weapons/Psprites.js';
 import { thinkUse, thinkWeaponChange } from '../game/PlayerThink.js';
 import { ThinkerList } from '../game/spec/ThinkerList.js';
 import { PuffManager } from '../render/BillboardRenderer.js';
+import { spawnMapThings } from '../game/MapThingSpawner.js';
+import { ItemPickup } from '../game/ItemPickup.js';
 
 /**
  * Active play state: player simulation + view for rendering.
@@ -18,7 +20,9 @@ export class PlaySession {
   constructor(level, player, sound = null) {
     this.level = level;
     this.player = player;
-    this.collision = new MapCollision(level);
+    this.things = spawnMapThings(level);
+    this.pickups = new ItemPickup(sound);
+    this.collision = new MapCollision(level, this.things, this.pickups);
     this.puffs = new PuffManager();
     this.hitscan = new Hitscan(this.collision, this.puffs);
     this.psprites = new Psprites(this.hitscan, sound);

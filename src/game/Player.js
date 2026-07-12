@@ -5,9 +5,9 @@ import { createPsprite } from './weapons/Psprites.js';
 import {
   AM_CLIP,
   AM_SHELL,
+  MAX_AMMO,
   NUM_AMMO,
   NUM_PSPRITES,
-  NUM_WEAPONS,
   WP_NOCHANGE,
   WP_PISTOL,
   WP_SHOTGUN,
@@ -37,9 +37,14 @@ export class Player {
     this.reactiontime = 0;
 
     this.health = 100;
+    mo.health = this.health;
+    this.armorpoints = 0;
+    this.armortype = 0;
+    this.backpack = false;
+    this.maxammo = [...MAX_AMMO];
     this.readyweapon = WP_PISTOL;
     this.pendingweapon = WP_NOCHANGE;
-    this.weaponowned = new Array(NUM_WEAPONS).fill(false);
+    this.weaponowned = new Array(8).fill(false);
     this.weaponowned[WP_PISTOL] = true;
     this.weaponowned[WP_SHOTGUN] = true;
     this.ammo = new Array(NUM_AMMO).fill(0);

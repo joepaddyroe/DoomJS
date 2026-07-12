@@ -118,6 +118,13 @@ async function start() {
         }
         bspRenderer.renderView(playSession.view());
         if (billboardRenderer) {
+          billboardRenderer.drawThings(
+            playSession.things,
+            playSession.view(),
+            bspRenderer.ctx.viewSetup,
+            trigTables,
+            playSession.player.extralight,
+          );
           billboardRenderer.drawPuffs(
             playSession.puffs.puffs,
             playSession.view(),
@@ -149,6 +156,13 @@ window.addEventListener('resize', () => {
   if (playSession && bspRenderer) {
     bspRenderer.renderView(playSession.view());
     if (billboardRenderer) {
+      billboardRenderer.drawThings(
+        playSession.things,
+        playSession.view(),
+        bspRenderer.ctx.viewSetup,
+        trigTables,
+        playSession.player.extralight,
+      );
       billboardRenderer.drawPuffs(
         playSession.puffs.puffs,
         playSession.view(),

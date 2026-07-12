@@ -41,6 +41,7 @@ import {
 import { ML_TWOSIDED } from './mapFormat.js';
 import { createTrigTables } from '../math/tables.js';
 import { pointToAngle } from '../math/viewMath.js';
+import { MF_PICKUP, MF_SOLID, MF_SPECIAL } from './mobjFlags.js';
 
 /**
  * Map collision and movement (p_map.c, p_maputl.c, p_mobj.c).
@@ -48,9 +49,13 @@ import { pointToAngle } from '../math/viewMath.js';
 export class MapCollision {
   /**
    * @param {import('./Level.js').Level} level
+   * @param {import('./MapThingSpawner.js').MapThingMobj[]} [mapThings]
+   * @param {import('./ItemPickup.js').ItemPickup|null} [pickups]
    */
-  constructor(level) {
+  constructor(level, mapThings = [], pickups = null) {
     this.level = level;
+    this.mapThings = mapThings;
+    this.pickups = pickups;
     this.tables = createTrigTables();
     this.tantoangle = this.tables.tantoangle;
 
@@ -129,7 +134,39 @@ export class MapCollision {
       }
     }
 
+    for (const thing of this.mapThings) {
+      if (!this.checkThing(thing)) {
+        return false;
+      }
+    }
+
     return true;
+  }
+
+  /** @param {import('./MapThingSpawner.js').MapThingMobj} thing */
+  checkThing(thing) {
+    if (thing.removed) {
+      return true;
+    }
+    if (!(thing.flags & (MF_SOLID | MF_SPECIAL))) {
+      return true;
+    }
+
+    const blockdist = thing.radius + this.tmthing.radius;
+    if (Math.abs(thing.x - this.tmx) >= blockdist
+      || Math.abs(thing.y - this.tmy) >= blockdist) {
+      return true;
+    }
+
+    if (thing.flags & MF_SPECIAL) {
+      const solid = (thing.flags & MF_SOLID) !== 0;
+      if ((this.tmflags & MF_PICKUP) && this.pickups && this.tmthing.playerObject) {
+        this.pickups.touchSpecial(this.tmthing.playerObject, thing);
+      }
+      return !solid;
+    }
+
+    return !(thing.flags & MF_SOLID);
   }
 
   /** @param {import('./Level.js').LevelLine} ld */

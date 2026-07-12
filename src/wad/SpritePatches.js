@@ -3,6 +3,16 @@ import { FF_FRAMEMASK, PS_FLASH, PS_WEAPON, WEAPON_STATES, spriteLumpName } from
 import { FRACBITS, FRACUNIT, SCREENWIDTH } from '../core/renderConstants.js';
 
 /**
+ * @param {string} spritePrefix
+ * @param {number} frame
+ * @param {boolean} [fullbright=false]
+ */
+export function mapSpriteLumpName(spritePrefix, frame, fullbright = false) {
+  const letter = String.fromCharCode('A'.charCodeAt(0) + (frame & FF_FRAMEMASK));
+  return `${spritePrefix}${letter}0`;
+}
+
+/**
  * Weapon patch loader — reads sprite lumps from the WAD (e.g. PISGA0).
  */
 export class SpritePatches {
@@ -21,6 +31,13 @@ export class SpritePatches {
    */
   getPatch(sprite, frame) {
     const name = spriteLumpName(sprite, frame & FF_FRAMEMASK);
+    return this.getPatchByName(name);
+  }
+
+  /**
+   * @param {string} name Lump name (e.g. COLUA0, SHOTA0)
+   */
+  getPatchByName(name) {
     let patch = this.cache.get(name);
     if (!patch) {
       const data = this.wad.readLumpByName(name);
