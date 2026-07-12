@@ -9,7 +9,7 @@ import {
 } from '../core/angles.js';
 import { FRACBITS, FRACUNIT } from '../core/renderConstants.js';
 import { fixedDiv2, fixedMul } from '../math/fixed.js';
-import { VIS_PLANE_TOP_OPEN } from './ClipSegList.js';
+import { MAX_VIS_PLANES, VIS_PLANE_TOP_OPEN } from './ClipSegList.js';
 
 /**
  * Floor and ceiling plane rendering (r_plane.c).
@@ -59,6 +59,10 @@ export class PlaneDrawer {
       if (height === check.height && picnum === check.picnum && lightlevel === check.lightlevel) {
         return check;
       }
+    }
+
+    if (this.ctx.visPlaneCount >= MAX_VIS_PLANES) {
+      return this.ctx.visPlanes[MAX_VIS_PLANES - 1];
     }
 
     const plane = this.ctx.visPlanes[this.ctx.visPlaneCount++];
@@ -115,6 +119,10 @@ export class PlaneDrawer {
   }
 
   splitPlane(pl, start, stop) {
+    if (this.ctx.visPlaneCount >= MAX_VIS_PLANES) {
+      return pl;
+    }
+
     const next = this.ctx.visPlanes[this.ctx.visPlaneCount++];
     next.height = pl.height;
     next.picnum = pl.picnum;
@@ -146,6 +154,10 @@ export class PlaneDrawer {
       }
 
       const flat = this.ctx.textures.getFlat(pl.picnum);
+      if (!flat) {
+        continue;
+      }
+
       this.planeHeight = Math.abs(pl.height - this.ctx.viewZ);
       let light = (pl.lightlevel >> LIGHTSEGSHIFT) + this.ctx.extralight;
       if (light >= LIGHTLEVELS) {
@@ -215,6 +227,9 @@ export class PlaneDrawer {
     if (x2 < x1 || x1 < 0 || x2 >= this.ctx.viewWidth) {
       return;
     }
+    if (y < 0 || y >= this.ctx.viewHeight || !flat) {
+      return;
+    }
 
     if (this.planeHeight !== this.cachedHeight[y]) {
       this.cachedHeight[y] = this.planeHeight;
@@ -231,10 +246,16 @@ export class PlaneDrawer {
     // view distance. Per-column splits caused visible vertical seams on the floor that
     // lined up with wall light bands and looked like distance rings/corruption.
     let lightIndex = (distance >>> 0) >> LIGHTZSHIFT;
+    if (lightIndex < 0) {
+      lightIndex = 0;
+    }
     if (lightIndex >= MAXLIGHTZ) {
       lightIndex = MAXLIGHTZ - 1;
     }
-    const colormap = this.planeZLight[lightIndex];
+    const colormap = this.planeZLight?.[lightIndex];
+    if (!colormap) {
+      return;
+    }
 
     const angle = fineAngleIndex(this.ctx.viewAngle + this.ctx.viewSetup.xToViewAngle[x1]);
     const length = fixedMul(distance, this.ctx.viewSetup.distScale[x1]);

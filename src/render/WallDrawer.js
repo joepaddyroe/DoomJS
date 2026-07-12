@@ -304,6 +304,8 @@ export class WallDrawer {
    * @param {number} bottom
    */
   updatePlaneColumn(plane, x, top, bottom) {
+    top = Math.max(0, top);
+    bottom = Math.min(this.ctx.viewHeight - 1, bottom);
     if (!plane || top > bottom) {
       return;
     }
@@ -360,6 +362,9 @@ export class WallDrawer {
           bottom = this.ctx.floorClip[rwX] - 1;
         }
 
+        top = Math.max(0, top);
+        bottom = Math.min(this.ctx.viewHeight - 1, bottom);
+
         if (top <= bottom) {
           this.planes.ceilingPlane.top[rwX] = top;
           this.planes.ceilingPlane.bottom[rwX] = bottom;
@@ -379,6 +384,9 @@ export class WallDrawer {
         if (top <= this.ctx.ceilingClip[rwX]) {
           top = this.ctx.ceilingClip[rwX] + 1;
         }
+
+        top = Math.max(0, top);
+        bottom = Math.min(this.ctx.viewHeight - 1, bottom);
 
         if (top <= bottom) {
           this.planes.floorPlane.top[rwX] = top;

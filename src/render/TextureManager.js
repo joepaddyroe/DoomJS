@@ -188,9 +188,12 @@ export class TextureManager {
 
   /**
    * @param {number} flatIndex
-   * @returns {Uint8Array}
+   * @returns {Uint8Array|null}
    */
   getFlat(flatIndex) {
+    if (flatIndex < 0 || flatIndex >= this.numFlats) {
+      return null;
+    }
     return this.wad.readLump(this.firstFlat + flatIndex);
   }
 

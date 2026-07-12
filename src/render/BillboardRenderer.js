@@ -9,6 +9,30 @@ import { pointToAngle } from '../math/viewMath.js';
 /** Puff animation frames (info.c — S_PUFF1..S_PUFF4). */
 const PUFF_TICS = [4, 4, 4, 4];
 
+/** Vanilla r_things.c — MINZ: closer than this in view depth, sprite is not drawn. */
+const SPRITE_MINZ = FRACUNIT * 4;
+
+/**
+ * r_things.c projects sprites without rejecting on screen Y; only columns are
+ * clipped during draw. Rejecting when the mobj anchor is below the view (common
+ * up close) incorrectly hid entire enemies.
+ * @param {{ x1: number, x2: number, y: number, scale: number }} projected
+ * @param {import('./PatchRenderer.js').PatchHeader} patch
+ * @param {number} viewHeight
+ * @param {number} viewWidth
+ */
+function spriteIntersectsView(projected, patch, viewHeight, viewWidth) {
+  if (projected.x2 < 0 || projected.x1 >= viewWidth || projected.scale <= 0) {
+    return false;
+  }
+
+  const scale = projected.scale;
+  const topY = projected.y - ((patch.topOffset * scale) >> FRACBITS);
+  const bottomY = projected.y + (((patch.height - patch.topOffset) * scale) >> FRACBITS);
+  return topY < viewHeight && bottomY >= 0;
+}
+
+
 /**
  * @typedef {Object} Puff
  * @property {number} x
@@ -100,7 +124,7 @@ export class BillboardRenderer {
         viewSin,
         patch,
       );
-      if (!projected || projected.y >= VIEWHEIGHT) {
+      if (!projected || !spriteIntersectsView(projected, patch.header, VIEWHEIGHT, viewSetup.viewWidth)) {
         continue;
       }
 
@@ -177,7 +201,7 @@ export class BillboardRenderer {
         viewSin,
         patch,
       );
-      if (!projected || projected.y >= VIEWHEIGHT) {
+      if (!projected || !spriteIntersectsView(projected, patch.header, VIEWHEIGHT, viewSetup.viewWidth)) {
         continue;
       }
 
@@ -222,7 +246,7 @@ export class BillboardRenderer {
     let gxt = fixedMul(trX, viewCos);
     let gyt = -fixedMul(trY, viewSin);
     const tz = gxt - gyt;
-    if (tz < FRACUNIT) {
+    if (tz < SPRITE_MINZ) {
       return null;
     }
 
