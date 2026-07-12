@@ -1,29 +1,31 @@
 import { SCREENWIDTH, SCREENHEIGHT } from '../../core/renderConstants.js';
 
-/** Default integer upscale for the 320×200 software buffer (nearest-neighbor). */
+/** Fallback integer scale when the window is smaller than one game pixel per screen pixel. */
 export const DEFAULT_PIXEL_SCALE = 2;
 
 /**
- * Presents the indexed software framebuffer at native 320×200 resolution
- * with optional integer pixel scaling — no bilinear stretch.
+ * Presents the indexed software framebuffer at native 320×200 resolution,
+ * scaled uniformly from window height with pillar/letterbox borders.
  *
  * Doom's software renderer always draws at SCREENWIDTH × SCREENHEIGHT (320×200).
- * We blit 1:1 to an offscreen buffer, then scale by an integer factor with
- * imageSmoothingEnabled disabled so each game pixel is a crisp square block.
+ * Display scale is floor(windowHeight / 200) so the image grows with window height;
+ * width follows at 4:3 and excess horizontal space is pillarboxed.
  */
 export class CanvasVideoOutput {
   /**
    * @param {HTMLCanvasElement} canvas
    * @param {number} [gameWidth=SCREENWIDTH]
    * @param {number} [gameHeight=SCREENHEIGHT]
-   * @param {number} [pixelScale=DEFAULT_PIXEL_SCALE]
    */
-  constructor(canvas, gameWidth = SCREENWIDTH, gameHeight = SCREENHEIGHT, pixelScale = DEFAULT_PIXEL_SCALE) {
+  constructor(canvas, gameWidth = SCREENWIDTH, gameHeight = SCREENHEIGHT) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d', { alpha: false });
     this.gameWidth = gameWidth;
     this.gameHeight = gameHeight;
-    this.pixelScale = Math.max(1, pixelScale | 0);
+    this.windowWidth = gameWidth;
+    this.windowHeight = gameHeight;
+    /** @type {number} Integer uniform scale from game pixels to display pixels. */
+    this.pixelScale = DEFAULT_PIXEL_SCALE;
 
     this.imageData = new ImageData(gameWidth, gameHeight);
     this.rgbBuffer = this.imageData.data;
@@ -39,25 +41,47 @@ export class CanvasVideoOutput {
 
     this.ctx.imageSmoothingEnabled = false;
 
-    this.applyCanvasSize();
+    this.resize(window.innerWidth, window.innerHeight);
   }
 
   /**
-   * @param {number} scale Integer pixel scale (1 = 320×200, 2 = 640×400, …).
+   * Resize the display canvas to the browser viewport and recompute integer scale.
+   * @param {number} width Viewport width in CSS pixels
+   * @param {number} height Viewport height in CSS pixels
    */
-  setPixelScale(scale) {
-    this.pixelScale = Math.max(1, scale | 0);
-    this.applyCanvasSize();
+  resize(width, height) {
+    this.windowWidth = Math.max(1, width | 0);
+    this.windowHeight = Math.max(1, height | 0);
+    this.pixelScale = this.computePixelScale();
+
+    this.canvas.width = this.windowWidth;
+    this.canvas.height = this.windowHeight;
+    this.canvas.style.width = `${this.windowWidth}px`;
+    this.canvas.style.height = `${this.windowHeight}px`;
   }
 
-  applyCanvasSize() {
+  /**
+   * Integer scale chosen so the image is as tall as the window allows (4:3 preserved).
+   * Wider viewports get pillarbox bars on the left and right only.
+   * @returns {number}
+   */
+  computePixelScale() {
+    return Math.max(1, Math.floor(this.windowHeight / this.gameHeight));
+  }
+
+  /**
+   * Centered destination rectangle for the scaled game image.
+   * @returns {{ x: number, y: number, w: number, h: number }}
+   */
+  getDestRect() {
     const w = this.gameWidth * this.pixelScale;
     const h = this.gameHeight * this.pixelScale;
-
-    this.canvas.width = w;
-    this.canvas.height = h;
-    this.canvas.style.width = `${w}px`;
-    this.canvas.style.height = `${h}px`;
+    return {
+      x: ((this.windowWidth - w) / 2) | 0,
+      y: ((this.windowHeight - h) / 2) | 0,
+      w,
+      h,
+    };
   }
 
   /**
@@ -114,11 +138,20 @@ export class CanvasVideoOutput {
 
     this.offscreenCtx.putImageData(this.imageData, 0, 0);
 
-    const destW = this.gameWidth * this.pixelScale;
-    const destH = this.gameHeight * this.pixelScale;
+    const dest = this.getDestRect();
 
     this.ctx.fillStyle = '#000';
-    this.ctx.fillRect(0, 0, destW, destH);
-    this.ctx.drawImage(this.offscreen, 0, 0, destW, destH);
+    this.ctx.fillRect(0, 0, this.windowWidth, this.windowHeight);
+    this.ctx.drawImage(
+      this.offscreen,
+      0,
+      0,
+      this.gameWidth,
+      this.gameHeight,
+      dest.x,
+      dest.y,
+      dest.w,
+      dest.h,
+    );
   }
 }

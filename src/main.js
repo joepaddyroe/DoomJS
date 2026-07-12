@@ -1,5 +1,5 @@
 import { SoftwareRenderer } from './render/SoftwareRenderer.js';
-import { CanvasVideoOutput, DEFAULT_PIXEL_SCALE } from './platform/video/CanvasVideoOutput.js';
+import { CanvasVideoOutput } from './platform/video/CanvasVideoOutput.js';
 import { VIEWHEIGHT } from './core/renderConstants.js';
 import { WadFile } from './wad/WadFile.js';
 import { GameAssets } from './wad/GameAssets.js';
@@ -24,7 +24,7 @@ const BUILD_TAG = '2026-07-12-sound2';
 const SOUND_DRIVER = soundDriverFromQuery();
 
 const canvas = document.getElementById('screen');
-const output = new CanvasVideoOutput(canvas, undefined, undefined, DEFAULT_PIXEL_SCALE);
+const output = new CanvasVideoOutput(canvas);
 const renderer = new SoftwareRenderer();
 
 renderer.initBuffer(renderer.screenWidth, VIEWHEIGHT);
@@ -102,7 +102,7 @@ async function start() {
     console.log(
       `DoomJS ${BUILD_TAG} — ${MAP_NAME} at (${pos.x}, ${pos.y}). `
       + `Sound: ${soundSystem?.driverId ?? 'none'} (?sound=webaudio|howler|null). `
-      + `320×200 @ ${DEFAULT_PIXEL_SCALE}× scale. Click canvas, WASD + arrows, 1/2/3 weapons, Ctrl/Space fire.`,
+      + `${output.gameWidth}×${output.gameHeight} @ ${output.pixelScale}× (window ${output.windowWidth}×${output.windowHeight}). Click canvas, WASD + arrows, 1/2/3 weapons, Ctrl/Space fire.`,
     );
 
     gameLoop = new GameLoop({
@@ -145,6 +145,7 @@ async function start() {
 }
 
 window.addEventListener('resize', () => {
+  output.resize(window.innerWidth, window.innerHeight);
   if (playSession && bspRenderer) {
     bspRenderer.renderView(playSession.view());
     if (billboardRenderer) {

@@ -15,24 +15,23 @@
     body {
       width: 100%;
       height: 100%;
-      overflow: auto;
-      background: #111;
+      overflow: hidden;
+      background: #000;
     }
 
     body {
-      display: flex;
-      align-items: center;
-      justify-content: center;
       min-height: 100%;
     }
 
     canvas {
       display: block;
-      /* Native 320×200 at 2× integer scale → 640×400 (crisp pixels, no stretch) */
+      width: 100%;
+      height: 100%;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
       cursor: crosshair;
       outline: none;
+      background: #000;
     }
   </style>
 </head>
