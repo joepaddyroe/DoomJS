@@ -1,5 +1,5 @@
-import { FRACBITS, MAX_TEXTURE_HEIGHT } from '../core/renderConstants.js';
-import { int32 } from '../math/fixed.js';
+import { FRACBITS, FRACUNIT, MAX_TEXTURE_HEIGHT } from '../core/renderConstants.js';
+import { fixedMul, int32 } from '../math/fixed.js';
 import { FUZZTABLE, FUZZTABLE_SIZE } from './fuzzTable.js';
 
 /**
@@ -77,6 +77,154 @@ export class ColumnRenderer {
       dest += screenWidth;
       frac = int32(frac + fracStep);
     } while (count--);
+  }
+
+  /**
+   * Masked mid-texture column (r_things.c — R_DrawMaskedColumn).
+   * @param {Object} params
+   * @param {number} params.x
+   * @param {number} params.textureMid
+   * @param {number} params.spryscale
+   * @param {Uint8Array} params.colormap
+   * @param {number} params.centerYFrac
+   * @param {number} [params.floorClip]
+   * @param {number} [params.ceilingClip]
+   * @param {Uint8Array} [params.patchData]
+   * @param {number} [params.columnOffset]
+   * @param {number} [params.originY]
+   * @param {Uint8Array} [params.flatColumn]
+   */
+  drawMaskedColumn(params) {
+    const {
+      x: dcX,
+      textureMid: dcTextureMid,
+      spryscale,
+      colormap: dcColormap,
+      centerYFrac,
+      floorClip = this.buffer.screenHeight,
+      ceilingClip = -1,
+      patchData = null,
+      columnOffset = 0,
+      originY = 0,
+      flatColumn = null,
+    } = params;
+
+    if (spryscale <= 0) {
+      return;
+    }
+
+    const screenWidth = this.buffer.screenWidth;
+    const screenHeight = this.buffer.screenHeight;
+    const pixels = this.buffer.pixels;
+    const sprtopscreen = int32(centerYFrac - fixedMul(dcTextureMid, spryscale));
+
+    if (patchData) {
+      let pos = columnOffset;
+      let topDelta = patchData[pos];
+      while (topDelta !== 0xff) {
+        const length = patchData[pos + 1];
+        this.drawMaskedScaledPost({
+          dcX,
+          sprtopscreen,
+          spryscale,
+          topRow: originY + topDelta,
+          length,
+          source: patchData,
+          sourceIndex: pos + 3,
+          dcColormap,
+          floorClip,
+          ceilingClip,
+          screenWidth,
+          screenHeight,
+          pixels,
+        });
+        pos += length + 4;
+        topDelta = patchData[pos];
+      }
+      return;
+    }
+
+    if (flatColumn) {
+      let row = 0;
+      while (row < flatColumn.length) {
+        while (row < flatColumn.length && flatColumn[row] === 0) {
+          row++;
+        }
+        if (row >= flatColumn.length) {
+          break;
+        }
+        const postStart = row;
+        while (row < flatColumn.length && flatColumn[row] !== 0) {
+          row++;
+        }
+        this.drawMaskedScaledPost({
+          dcX,
+          sprtopscreen,
+          spryscale,
+          topRow: postStart,
+          length: row - postStart,
+          source: flatColumn,
+          sourceIndex: postStart,
+          dcColormap,
+          floorClip,
+          ceilingClip,
+          screenWidth,
+          screenHeight,
+          pixels,
+        });
+      }
+    }
+  }
+
+  /**
+   * @param {Object} post
+   */
+  drawMaskedScaledPost(post) {
+    const {
+      dcX,
+      sprtopscreen,
+      spryscale,
+      topRow,
+      length,
+      source,
+      sourceIndex,
+      dcColormap,
+      floorClip,
+      ceilingClip,
+      screenWidth,
+      screenHeight,
+      pixels,
+    } = post;
+
+    const topscreen = sprtopscreen + int32(Math.imul(topRow, spryscale));
+    const bottomscreen = topscreen + int32(Math.imul(length, spryscale));
+
+    let dcYl = (topscreen + FRACUNIT - 1) >> FRACBITS;
+    let dcYh = (bottomscreen - 1) >> FRACBITS;
+
+    if (dcYh >= floorClip) {
+      dcYh = floorClip - 1;
+    }
+    if (dcYl <= ceilingClip) {
+      dcYl = ceilingClip + 1;
+    }
+    if (dcYl < 0) {
+      dcYl = 0;
+    }
+    if (dcYh >= screenHeight) {
+      dcYh = screenHeight - 1;
+    }
+    if (dcYl > dcYh) {
+      return;
+    }
+
+    for (let screenY = dcYl; screenY <= dcYh; screenY++) {
+      const srcRow = Math.min(
+        length - 1,
+        Math.max(0, (((screenY << FRACBITS) - topscreen) / spryscale) | 0),
+      );
+      pixels[screenY * screenWidth + dcX] = dcColormap[source[sourceIndex + srcRow]];
+    }
   }
 
   /**

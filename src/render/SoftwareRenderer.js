@@ -125,6 +125,14 @@ export class SoftwareRenderer {
   }
 
   /**
+   * Masked mid-texture / transparent column (R_DrawMaskedColumn).
+   * @param {Object} params
+   */
+  drawMaskedColumn(params) {
+    this.columns.drawMaskedColumn(params);
+  }
+
+  /**
    * @param {Omit<ColumnDrawParams, 'centerY'>} params
    */
   drawColumnLow(params) {

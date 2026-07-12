@@ -19,7 +19,7 @@ import {
 import { FRACBITS, FRACUNIT } from '../core/renderConstants.js';
 import { fixedMul, int32 } from '../math/fixed.js';
 import { pointToDist, scaleFromGlobalAngle } from '../math/viewMath.js';
-import { MAX_DRAW_SEGS, SPR_CLIP_BOTTOM_OPEN, SPR_CLIP_TOP_OPEN } from './ClipSegList.js';
+import { MAX_DRAW_SEGS, MASKED_COL_DONE, SPR_CLIP_BOTTOM_OPEN, SPR_CLIP_TOP_OPEN } from './ClipSegList.js';
 
 /**
  * Wall segment rasterization (r_segs.c).
@@ -70,6 +70,8 @@ export class WallDrawer {
     ds.curline = seg;
     ds.x1 = start;
     ds.x2 = stop;
+    ds.maskedtexturecol = null;
+    ds.maskedtexture = 0;
 
     let rwScale = scaleFromGlobalAngle(
       (this.ctx.viewAngle + this.ctx.viewSetup.xToViewAngle[start]) >>> 0,
@@ -103,6 +105,8 @@ export class WallDrawer {
     const worldBottom = frontsector.floorHeight - this.ctx.viewZ;
 
     let midTexture = 0;
+    let maskedTexture = 0;
+    let maskedTextureCol = null;
     let topTexture = 0;
     let bottomTexture = 0;
     let markFloor = false;
@@ -197,6 +201,14 @@ export class WallDrawer {
           : worldLow;
         rwBottomTextureMid += sidedef.rowOffset;
       }
+
+      if (sidedef.midTexture) {
+        maskedTexture = sidedef.midTexture;
+        const segWidth = stop - start + 1;
+        maskedTextureCol = new Int16Array(segWidth).fill(MASKED_COL_DONE);
+        ds.maskedtexturecol = maskedTextureCol;
+        ds.maskedtexture = maskedTexture;
+      }
     }
 
     if (frontsector.floorHeight >= this.ctx.viewZ) {
@@ -216,7 +228,7 @@ export class WallDrawer {
 
     let rwOffset = 0;
     let rwCenterAngle = 0;
-    const segTextured = midTexture || topTexture || bottomTexture;
+    const segTextured = midTexture || topTexture || bottomTexture || maskedTexture;
     if (segTextured) {
       let texOffsetAngle = (rwNormalAngle - this.bsp.rwAngle1) >>> 0;
       if (texOffsetAngle > ANG180) {
@@ -251,38 +263,49 @@ export class WallDrawer {
     this.renderSegLoop(
       start, stop + 1, rwScale, rwScaleStep,
       worldTop, worldBottom, backsector,
-      midTexture, topTexture, bottomTexture,
+      midTexture, topTexture, bottomTexture, maskedTexture, maskedTextureCol,
       rwMidTextureMid, rwTopTextureMid, rwBottomTextureMid,
       rwCenterAngle, rwDistance, rwOffset, sidedef,
       markFloor, markCeiling, wallLights,
     );
 
     const segWidth = stop - start + 1;
-    if ((ds.silhouette & SIL_TOP) && !ds.sprtopclip) {
+    const hasMasked = !!ds.maskedtexturecol;
+
+    if (((ds.silhouette & SIL_TOP) || hasMasked) && !ds.sprtopclip) {
       ds.sprtopclip = new Int16Array(segWidth);
       for (let x = start; x <= stop; x++) {
         ds.sprtopclip[x - start] = this.ctx.ceilingClip[x];
       }
     }
-    if ((ds.silhouette & SIL_BOTTOM) && !ds.sprbottomclip) {
+    if (((ds.silhouette & SIL_BOTTOM) || hasMasked) && !ds.sprbottomclip) {
       ds.sprbottomclip = new Int16Array(segWidth);
       for (let x = start; x <= stop; x++) {
         ds.sprbottomclip[x - start] = this.ctx.floorClip[x];
       }
     }
 
+    if (hasMasked && !(ds.silhouette & SIL_TOP)) {
+      ds.silhouette |= SIL_TOP;
+      ds.tsilheight = -0x80000000;
+    }
+    if (hasMasked && !(ds.silhouette & SIL_BOTTOM)) {
+      ds.silhouette |= SIL_BOTTOM;
+      ds.bsilheight = 0x7fffffff;
+    }
+
     this.ctx.drawSegCount++;
   }
 
   renderSegLoop(
-    rwX, rwStopX, rwScale, rwScaleStep,
+    segStart, rwStopX, rwScale, rwScaleStep,
     worldTop, worldBottom, backsector,
-    midTexture, topTexture, bottomTexture,
+    midTexture, topTexture, bottomTexture, maskedTexture, maskedTextureCol,
     rwMidTextureMid, rwTopTextureMid, rwBottomTextureMid,
     rwCenterAngle, rwDistance, rwOffset, sidedef,
     markFloor, markCeiling, wallLights,
   ) {
-    const segTextured = midTexture || topTexture || bottomTexture;
+    const segTextured = midTexture || topTexture || bottomTexture || maskedTexture;
 
     let topFrac = (this.ctx.viewSetup.centerYFrac >> 4) - fixedMul(worldTop >> 4, rwScale);
     let topStep = -fixedMul(rwScaleStep, worldTop >> 4);
@@ -302,7 +325,7 @@ export class WallDrawer {
       pixLowStep = -fixedMul(rwScaleStep, worldLow >> 4);
     }
 
-    for (; rwX < rwStopX; rwX++) {
+    for (let rwX = segStart; rwX < rwStopX; rwX++) {
       let yl = (topFrac + HEIGHTUNIT - 1) >> HEIGHTBITS;
 
       if (yl < this.ctx.ceilingClip[rwX] + 1) {
@@ -418,11 +441,117 @@ export class WallDrawer {
         } else if (markFloor) {
           this.ctx.floorClip[rwX] = yh + 1;
         }
+
+        if (maskedTexture && maskedTextureCol && segTextured) {
+          maskedTextureCol[rwX - segStart] = textureColumn;
+          this.ctx.ceilingClip[rwX] = yl - 1;
+          this.ctx.floorClip[rwX] = yh + 1;
+        }
       }
 
       rwScale = int32(rwScale + rwScaleStep);
       topFrac = int32(topFrac + topStep);
       bottomFrac = int32(bottomFrac + bottomStep);
+    }
+  }
+
+  /**
+   * Deferred masked mid-texture pass (r_segs.c — R_RenderMaskedSegRange).
+   * @param {import('./ClipSegList.js').DrawSeg} ds
+   * @param {number} x1
+   * @param {number} x2
+   */
+  renderMaskedSegRange(ds, x1, x2) {
+    const seg = ds.curline;
+    if (!seg || !ds.maskedtexturecol || !ds.maskedtexture) {
+      return;
+    }
+
+    const frontsector = seg.frontsector;
+    const backsector = seg.backsector;
+    const linedef = seg.linedef;
+    const sidedef = seg.sidedef;
+    const texnum = ds.maskedtexture;
+
+    let lightNum = (frontsector.lightLevel >> LIGHTSEGSHIFT) + this.ctx.extralight;
+    if (seg.v1.y === seg.v2.y) {
+      lightNum--;
+    } else if (seg.v1.x === seg.v2.x) {
+      lightNum++;
+    }
+    if (lightNum < 0) {
+      lightNum = 0;
+    } else if (lightNum >= LIGHTLEVELS) {
+      lightNum = LIGHTLEVELS - 1;
+    }
+    const wallLights = this.ctx.viewSetup.scaleLight[lightNum];
+
+    const maskedtexturecol = ds.maskedtexturecol;
+    let spryscale = int32(ds.scale1 + (x1 - ds.x1) * ds.scalestep);
+    const mfloorclip = ds.sprbottomclip;
+    const mceilingclip = ds.sprtopclip;
+
+    let dcTextureMid;
+    if (linedef.flags & ML_DONTPEGBOTTOM) {
+      const floor = frontsector.floorHeight > backsector.floorHeight
+        ? frontsector.floorHeight
+        : backsector.floorHeight;
+      dcTextureMid = floor + this.ctx.textures.textureHeight[texnum] - this.ctx.viewZ;
+    } else {
+      const ceil = frontsector.ceilingHeight < backsector.ceilingHeight
+        ? frontsector.ceilingHeight
+        : backsector.ceilingHeight;
+      dcTextureMid = ceil - this.ctx.viewZ;
+    }
+    dcTextureMid += sidedef.rowOffset;
+
+    for (let dcX = x1; dcX <= x2; dcX++) {
+      const colIdx = dcX - ds.x1;
+      if (maskedtexturecol[colIdx] !== MASKED_COL_DONE) {
+        const lightIndex = Math.min(MAXLIGHTSCALE - 1, (spryscale >>> 0) >> LIGHTSCALESHIFT);
+        const colormap = wallLights[lightIndex];
+
+        let floorClip = this.ctx.viewHeight;
+        let ceilingClip = -1;
+        if (mfloorclip === SPR_CLIP_BOTTOM_OPEN) {
+          floorClip = this.ctx.viewHeight;
+        } else if (mfloorclip) {
+          floorClip = mfloorclip[colIdx];
+        }
+        if (mceilingclip === SPR_CLIP_TOP_OPEN) {
+          ceilingClip = -1;
+        } else if (mceilingclip) {
+          ceilingClip = mceilingclip[colIdx];
+        }
+
+        const maskedColumn = this.ctx.textures.getMaskedPatchColumn(
+          texnum,
+          maskedtexturecol[colIdx],
+        );
+
+        this.ctx.softwareRenderer.drawMaskedColumn({
+          x: dcX,
+          textureMid: dcTextureMid,
+          spryscale,
+          colormap,
+          centerYFrac: this.ctx.viewSetup.centerYFrac,
+          floorClip,
+          ceilingClip,
+          ...maskedColumn,
+        });
+        maskedtexturecol[colIdx] = MASKED_COL_DONE;
+      }
+      spryscale = int32(spryscale + ds.scalestep);
+    }
+  }
+
+  /** Draw all deferred masked mid-textures after sprites (r_things.c — R_DrawMasked). */
+  renderAllMaskedSegs() {
+    for (let i = 0; i < this.ctx.drawSegCount; i++) {
+      const ds = this.ctx.drawSegs[i];
+      if (ds.maskedtexturecol) {
+        this.renderMaskedSegRange(ds, ds.x1, ds.x2);
+      }
     }
   }
 

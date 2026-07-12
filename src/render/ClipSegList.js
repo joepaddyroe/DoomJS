@@ -120,6 +120,9 @@ export class ClipSegList {
 
 export const MAX_DRAW_SEGS = 256;
 
+/** Sentinel: masked column already drawn (r_segs.c — MAXSHORT). */
+export const MASKED_COL_DONE = 0x7fff;
+
 /** Fully open sprite top clip (r_segs.c — screenheightarray). */
 export const SPR_CLIP_TOP_OPEN = 'top';
 /** Fully open sprite bottom clip (r_segs.c — negonearray). */
@@ -142,6 +145,10 @@ export function createDrawSeg() {
     tsilheight: 0,
     sprtopclip: null,
     sprbottomclip: null,
+    /** @type {Int16Array|null} Per-column texture x for deferred masked midtexture. */
+    maskedtexturecol: null,
+    /** @type {number} Midtexture index when maskedtexturecol is set. */
+    maskedtexture: 0,
   };
 }
 

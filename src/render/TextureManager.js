@@ -217,6 +217,43 @@ export class TextureManager {
   }
 
   /**
+   * Raw patch column for masked mid-textures (r_segs.c — R_GetColumn, column_t at -3).
+   * @param {number} texIndex
+   * @param {number} column
+   * @returns {{ patchData: Uint8Array, columnOffset: number, originY: number } | { flatColumn: Uint8Array }}
+   */
+  getMaskedPatchColumn(texIndex, column) {
+    if (texIndex <= 0) {
+      return { flatColumn: new Uint8Array(128) };
+    }
+
+    const maskedCol = (column | 0) & this.textureWidthMask[texIndex];
+    const lump = this.columnLump[texIndex][maskedCol];
+    const offset = this.columnOffset[texIndex][maskedCol];
+
+    if (lump >= 0) {
+      const texture = this.textures[texIndex];
+      let originY = 0;
+      for (const patch of texture.patches) {
+        const patchData = this.wad.readLump(patch.patch);
+        const patchWidth = new DataView(patchData.buffer, patchData.byteOffset, patchData.byteLength)
+          .getInt16(0, true);
+        if (maskedCol >= patch.originX && maskedCol < patch.originX + patchWidth) {
+          originY = patch.originY;
+          break;
+        }
+      }
+      return {
+        patchData: this.wad.readLump(lump),
+        columnOffset: offset,
+        originY,
+      };
+    }
+
+    return { flatColumn: this.getCompositeColumn(texIndex, maskedCol) };
+  }
+
+  /**
    * @param {Uint8Array} patch
    * @param {number} columnOffset
    * @returns {Uint8Array}

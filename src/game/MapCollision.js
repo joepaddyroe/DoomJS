@@ -19,6 +19,7 @@ import {
   MAXMOVE,
   MAXSTEPHEIGHT,
   MF_DROPOFF,
+  MF_MISSILE,
   MF_NOCLIP,
   MF_TELEPORT,
   ML_BLOCKING,
@@ -186,11 +187,11 @@ export class MapCollision {
       return false;
     }
 
-    if (!(this.tmthing.flags & (1 << 22))) {
+    if (!(this.tmthing.flags & MF_MISSILE)) {
       if (ld.flags & ML_BLOCKING) {
         return false;
       }
-      if (ld.flags & ML_BLOCKMONSTERS) {
+      if (!this.tmthing.player && (ld.flags & ML_BLOCKMONSTERS)) {
         return false;
       }
     }

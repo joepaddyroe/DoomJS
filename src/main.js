@@ -138,6 +138,7 @@ async function start() {
             playSession.player.extralight,
           );
         }
+        bspRenderer.walls.renderAllMaskedSegs();
         if (pspriteRenderer) {
           pspriteRenderer.draw(playSession.player, playSession.player.extralight);
         }
@@ -181,6 +182,7 @@ window.addEventListener('resize', () => {
         playSession.player.extralight,
       );
     }
+    bspRenderer.walls.renderAllMaskedSegs();
     if (pspriteRenderer) {
       pspriteRenderer.draw(playSession.player, playSession.player.extralight);
     }
