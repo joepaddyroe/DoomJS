@@ -1,5 +1,6 @@
-import { ANG90, fineAngleIndex } from '../core/angles.js';
-import { THRUST_SCALE } from '../core/gameConstants.js';
+import { FINEANGLES, FINEMASK, ANG90, fineAngleIndex } from '../core/angles.js';
+import { MAXBOB, THRUST_SCALE } from '../core/gameConstants.js';
+import { FRACUNIT } from '../core/renderConstants.js';
 import { fixedMul } from '../math/fixed.js';
 import { createTrigTables } from '../math/tables.js';
 
@@ -42,13 +43,23 @@ export class PlayerMovement {
     const mo = player.mo;
     const onground = mo.z <= mo.floorz;
 
+    // Regular movement bobbing (p_user.c — always, for weapon swing even when airborne).
+    player.bob = fixedMul(mo.momx, mo.momx) + fixedMul(mo.momy, mo.momy);
+    player.bob >>= 2;
+    if (player.bob > MAXBOB) {
+      player.bob = MAXBOB;
+    }
+
     if (!onground) {
       player.viewz = mo.z + player.viewheight;
-      if (player.viewz > mo.ceilingz - 4 * (1 << 16)) {
-        player.viewz = mo.ceilingz - 4 * (1 << 16);
+      if (player.viewz > mo.ceilingz - 4 * FRACUNIT) {
+        player.viewz = mo.ceilingz - 4 * FRACUNIT;
       }
       return;
     }
+
+    const angle = ((FINEANGLES / 20) * player.leveltime) & FINEMASK;
+    const bob = fixedMul((player.bob / 2) | 0, this.tables.finesine[angle]);
 
     player.viewheight += player.deltaviewheight;
     if (player.viewheight > player.viewheightBase) {
@@ -62,15 +73,15 @@ export class PlayerMovement {
     }
 
     if (player.deltaviewheight) {
-      player.deltaviewheight += 1 << 14;
+      player.deltaviewheight += FRACUNIT / 4;
       if (!player.deltaviewheight) {
         player.deltaviewheight = 1;
       }
     }
 
-    player.viewz = mo.z + player.viewheight;
-    if (player.viewz > mo.ceilingz - 4 * (1 << 16)) {
-      player.viewz = mo.ceilingz - 4 * (1 << 16);
+    player.viewz = mo.z + player.viewheight + bob;
+    if (player.viewz > mo.ceilingz - 4 * FRACUNIT) {
+      player.viewz = mo.ceilingz - 4 * FRACUNIT;
     }
   }
 }

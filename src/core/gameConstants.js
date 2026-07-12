@@ -6,6 +6,9 @@ export const TICRATE = 35;
 /** Eye height above feet (p_local.h — VIEWHEIGHT). */
 export const VIEWHEIGHT = 41 * FRACUNIT;
 
+/** View bob amplitude cap (p_user.c — MAXBOB, 16 pixels). */
+export const MAXBOB = 0x100000;
+
 /** Player collision radius (p_local.h — PLAYERRADIUS). */
 export const PLAYER_RADIUS = 16 * FRACUNIT;
 
