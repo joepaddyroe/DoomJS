@@ -19,7 +19,7 @@ import {
 import { FRACBITS, FRACUNIT } from '../core/renderConstants.js';
 import { fixedMul, int32 } from '../math/fixed.js';
 import { pointToDist, scaleFromGlobalAngle } from '../math/viewMath.js';
-import { MAX_DRAW_SEGS } from './ClipSegList.js';
+import { MAX_DRAW_SEGS, SPR_CLIP_BOTTOM_OPEN, SPR_CLIP_TOP_OPEN } from './ClipSegList.js';
 
 /**
  * Wall segment rasterization (r_segs.c).
@@ -123,15 +123,41 @@ export class WallDrawer {
       }
       rwMidTextureMid += sidedef.rowOffset;
       ds.silhouette = SIL_BOTH;
+      ds.sprtopclip = SPR_CLIP_TOP_OPEN;
+      ds.sprbottomclip = SPR_CLIP_BOTTOM_OPEN;
+      ds.bsilheight = 0x7fffffff;
+      ds.tsilheight = -0x80000000;
     } else {
       ds.silhouette = SIL_NONE;
+      ds.sprtopclip = null;
+      ds.sprbottomclip = null;
+
       if (frontsector.floorHeight > backsector.floorHeight) {
         ds.silhouette = SIL_BOTTOM;
         ds.bsilheight = frontsector.floorHeight;
+      } else if (backsector.floorHeight > this.ctx.viewZ) {
+        ds.silhouette = SIL_BOTTOM;
+        ds.bsilheight = 0x7fffffff;
       }
+
       if (frontsector.ceilingHeight < backsector.ceilingHeight) {
         ds.silhouette |= SIL_TOP;
         ds.tsilheight = frontsector.ceilingHeight;
+      } else if (backsector.ceilingHeight < this.ctx.viewZ) {
+        ds.silhouette |= SIL_TOP;
+        ds.tsilheight = -0x80000000;
+      }
+
+      if (backsector.ceilingHeight <= frontsector.floorHeight) {
+        ds.sprbottomclip = SPR_CLIP_BOTTOM_OPEN;
+        ds.bsilheight = 0x7fffffff;
+        ds.silhouette |= SIL_BOTTOM;
+      }
+
+      if (backsector.floorHeight >= frontsector.ceilingHeight) {
+        ds.sprtopclip = SPR_CLIP_TOP_OPEN;
+        ds.tsilheight = -0x80000000;
+        ds.silhouette |= SIL_TOP;
       }
 
       let worldHigh = backsector.ceilingHeight - this.ctx.viewZ;
@@ -230,6 +256,20 @@ export class WallDrawer {
       rwCenterAngle, rwDistance, rwOffset, sidedef,
       markFloor, markCeiling, wallLights,
     );
+
+    const segWidth = stop - start + 1;
+    if ((ds.silhouette & SIL_TOP) && !ds.sprtopclip) {
+      ds.sprtopclip = new Int16Array(segWidth);
+      for (let x = start; x <= stop; x++) {
+        ds.sprtopclip[x - start] = this.ctx.ceilingClip[x];
+      }
+    }
+    if ((ds.silhouette & SIL_BOTTOM) && !ds.sprbottomclip) {
+      ds.sprbottomclip = new Int16Array(segWidth);
+      for (let x = start; x <= stop; x++) {
+        ds.sprbottomclip[x - start] = this.ctx.floorClip[x];
+      }
+    }
 
     this.ctx.drawSegCount++;
   }

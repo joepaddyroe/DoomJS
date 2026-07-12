@@ -166,8 +166,11 @@ export class PatchRenderer {
    * @param {Uint8Array} patchData
    * @param {Uint8Array|null} colormap
    * @param {number} scale Fixed-point scale (FRACUNIT = 1:1)
+   * @param {Int16Array|null} [clipbot]
+   * @param {Int16Array|null} [cliptop]
+   * @param {number} [clipX1=0]
    */
-  drawPatchScaled(x, y, patch, patchData, colormap, scale) {
+  drawPatchScaled(x, y, patch, patchData, colormap, scale, clipbot = null, cliptop = null, clipX1 = 0) {
     if (scale <= 0) {
       return;
     }
@@ -194,6 +197,17 @@ export class PatchRenderer {
         continue;
       }
 
+      let floorClip = screenHeight;
+      let ceilingClip = -1;
+      if (clipbot && cliptop) {
+        const clipIdx = screenX - clipX1;
+        if (clipIdx < 0 || clipIdx >= clipbot.length) {
+          continue;
+        }
+        floorClip = clipbot[clipIdx];
+        ceilingClip = cliptop[clipIdx];
+      }
+
       let columnOffset = patch.columnOffsets[srcCol];
       let topDelta = patchData[columnOffset];
 
@@ -205,11 +219,23 @@ export class PatchRenderer {
         let dcYl = (topFixed + FRACUNIT - 1) >> FRACBITS;
         let dcYh = (bottomFixed - 1) >> FRACBITS;
 
+        if (dcYh >= floorClip) {
+          dcYh = floorClip - 1;
+        }
+        if (dcYl <= ceilingClip) {
+          dcYl = ceilingClip + 1;
+        }
+
         if (dcYl < 0) {
           dcYl = 0;
         }
         if (dcYh >= screenHeight) {
           dcYh = screenHeight - 1;
+        }
+        if (dcYl > dcYh) {
+          columnOffset += length + 4;
+          topDelta = patchData[columnOffset];
+          continue;
         }
 
         for (let screenY = dcYl; screenY <= dcYh; screenY++) {

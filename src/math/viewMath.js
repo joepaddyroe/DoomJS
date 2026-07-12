@@ -35,6 +35,47 @@ export function pointOnSide(x, y, node) {
 }
 
 /**
+ * Which side of a seg the point lies on (r_main.c — R_PointOnSegSide).
+ * @param {number} x
+ * @param {number} y
+ * @param {{ v1: { x: number, y: number }, v2: { x: number, y: number } }} seg
+ * @returns {0|1}
+ */
+export function pointOnSegSide(x, y, seg) {
+  const lx = seg.v1.x;
+  const ly = seg.v1.y;
+  const ldx = seg.v2.x - lx;
+  const ldy = seg.v2.y - ly;
+
+  if (!ldx) {
+    if (x <= lx) {
+      return ldy > 0 ? 1 : 0;
+    }
+    return ldy < 0 ? 1 : 0;
+  }
+  if (!ldy) {
+    if (y <= ly) {
+      return ldx < 0 ? 1 : 0;
+    }
+    return ldx > 0 ? 1 : 0;
+  }
+
+  const dx = x - lx;
+  const dy = y - ly;
+
+  if ((ldy ^ ldx ^ dx ^ dy) & 0x80000000) {
+    if ((ldy ^ dx) & 0x80000000) {
+      return 1;
+    }
+    return 0;
+  }
+
+  const left = fixedMul(ldy >> FRACBITS, dx);
+  const right = fixedMul(dy, ldx >> FRACBITS);
+  return right < left ? 0 : 1;
+}
+
+/**
  * @param {number} x Fixed world x
  * @param {number} y Fixed world y
  * @param {number} viewX

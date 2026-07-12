@@ -207,8 +207,8 @@ export class SoftwareRenderer {
    * @param {Uint8Array|null} colormap
    * @param {number} scale
    */
-  drawPatchScaled(x, y, patch, patchData, colormap, scale) {
-    this.patches.drawPatchScaled(x, y, patch, patchData, colormap, scale);
+  drawPatchScaled(x, y, patch, patchData, colormap, scale, clipbot, cliptop, clipX1) {
+    this.patches.drawPatchScaled(x, y, patch, patchData, colormap, scale, clipbot, cliptop, clipX1);
   }
 
   /**

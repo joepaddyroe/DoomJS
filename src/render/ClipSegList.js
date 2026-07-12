@@ -120,6 +120,11 @@ export class ClipSegList {
 
 export const MAX_DRAW_SEGS = 256;
 
+/** Fully open sprite top clip (r_segs.c — screenheightarray). */
+export const SPR_CLIP_TOP_OPEN = 'top';
+/** Fully open sprite bottom clip (r_segs.c — negonearray). */
+export const SPR_CLIP_BOTTOM_OPEN = 'bottom';
+
 /** Unmarked visplane top scanline (r_plane.c — 0xff sentinel). */
 export const VIS_PLANE_TOP_OPEN = 0xff;
 
@@ -135,6 +140,8 @@ export function createDrawSeg() {
     silhouette: 0,
     bsilheight: 0,
     tsilheight: 0,
+    sprtopclip: null,
+    sprbottomclip: null,
   };
 }
 

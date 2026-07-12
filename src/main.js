@@ -118,11 +118,14 @@ async function start() {
         }
         bspRenderer.renderView(playSession.view());
         if (billboardRenderer) {
+          const { drawSegs, drawSegCount } = bspRenderer.ctx;
           billboardRenderer.drawThings(
             playSession.things,
             playSession.view(),
             bspRenderer.ctx.viewSetup,
             trigTables,
+            drawSegs,
+            drawSegCount,
             playSession.player.extralight,
           );
           billboardRenderer.drawPuffs(
@@ -130,6 +133,8 @@ async function start() {
             playSession.view(),
             bspRenderer.ctx.viewSetup,
             trigTables,
+            drawSegs,
+            drawSegCount,
             playSession.player.extralight,
           );
         }
@@ -156,11 +161,14 @@ window.addEventListener('resize', () => {
   if (playSession && bspRenderer) {
     bspRenderer.renderView(playSession.view());
     if (billboardRenderer) {
+      const { drawSegs, drawSegCount } = bspRenderer.ctx;
       billboardRenderer.drawThings(
         playSession.things,
         playSession.view(),
         bspRenderer.ctx.viewSetup,
         trigTables,
+        drawSegs,
+        drawSegCount,
         playSession.player.extralight,
       );
       billboardRenderer.drawPuffs(
@@ -168,6 +176,8 @@ window.addEventListener('resize', () => {
         playSession.view(),
         bspRenderer.ctx.viewSetup,
         trigTables,
+        drawSegs,
+        drawSegCount,
         playSession.player.extralight,
       );
     }
