@@ -1,9 +1,10 @@
 import { FRACBITS, FRACUNIT, VIEWHEIGHT } from '../core/renderConstants.js';
-import { fineAngleIndex } from '../core/angles.js';
+import { ANG45, fineAngleIndex } from '../core/angles.js';
 import { fixedDiv, fixedMul } from '../math/fixed.js';
 import { SPR_PUFF } from '../game/weapons/weaponConstants.js';
 import { mapSpriteLumpName } from '../wad/SpritePatches.js';
-import { computeSpriteClip } from './SpriteClipper.js';
+import { computeSpriteClip, renderMaskedSegsBehindSprite } from './SpriteClipper.js';
+import { pointToAngle } from '../math/viewMath.js';
 
 /** Puff animation frames (info.c — S_PUFF1..S_PUFF4). */
 const PUFF_TICS = [4, 4, 4, 4];
@@ -78,9 +79,10 @@ export class BillboardRenderer {
    * @param {import('../math/tables.js').createTrigTables extends Function ? ReturnType<createTrigTables> : any} tables
    * @param {import('./WallDrawer.js').DrawSeg[]} drawSegs
    * @param {number} drawSegCount
+   * @param {import('./WallDrawer.js').WallDrawer} wallDrawer
    * @param {number} [extralight=0]
    */
-  drawPuffs(puffs, view, viewSetup, tables, drawSegs, drawSegCount, extralight = 0) {
+  drawPuffs(puffs, view, viewSetup, tables, drawSegs, drawSegCount, wallDrawer, extralight = 0) {
     const viewCos = tables.finecosine[fineAngleIndex(view.angle)];
     const viewSin = tables.finesine[fineAngleIndex(view.angle)];
     const lightIndex = Math.min(31, 16 + extralight);
@@ -103,6 +105,7 @@ export class BillboardRenderer {
       }
 
       const { clipbot, cliptop } = computeSpriteClip(projected, drawSegs, drawSegCount, VIEWHEIGHT);
+      renderMaskedSegsBehindSprite(projected, drawSegs, drawSegCount, wallDrawer);
       this.renderer.drawPatchScaled(
         projected.x,
         projected.y,
@@ -124,9 +127,10 @@ export class BillboardRenderer {
    * @param {import('../math/tables.js').createTrigTables extends Function ? ReturnType<createTrigTables> : any} tables
    * @param {import('./WallDrawer.js').DrawSeg[]} drawSegs
    * @param {number} drawSegCount
+   * @param {import('./WallDrawer.js').WallDrawer} wallDrawer
    * @param {number} [extralight=0]
    */
-  drawThings(things, view, viewSetup, tables, drawSegs, drawSegCount, extralight = 0) {
+  drawThings(things, view, viewSetup, tables, drawSegs, drawSegCount, wallDrawer, extralight = 0) {
     const viewCos = tables.finecosine[fineAngleIndex(view.angle)];
     const viewSin = tables.finesine[fineAngleIndex(view.angle)];
     const lightIndex = Math.min(31, 16 + extralight);
@@ -139,12 +143,28 @@ export class BillboardRenderer {
         continue;
       }
 
-      const lumpName = mapSpriteLumpName(thing.sprite, thing.frame, thing.fullbright);
+      const rotation = thing.monsterType
+        ? ((((pointToAngle(thing.x, thing.y, view.x, view.y, tables.tantoangle)
+          - thing.angle) >>> 0) + ((ANG45 >>> 1) * 9 >>> 0)) >>> 29)
+        : 0;
+
       let patch;
-      try {
-        patch = this.sprites.getPatchByName(lumpName);
-      } catch {
-        continue;
+      let flip = false;
+      if (thing.monsterType) {
+        const resolved = this.sprites.getWorldSprite(thing.sprite, thing.frame, rotation);
+        if (!resolved) {
+          continue;
+        }
+        patch = resolved.patch;
+        flip = resolved.flip;
+      } else {
+        try {
+          patch = this.sprites.getPatchByName(
+            mapSpriteLumpName(thing.sprite, thing.frame, thing.fullbright),
+          );
+        } catch {
+          continue;
+        }
       }
 
       const projected = this.projectSprite(
@@ -161,7 +181,7 @@ export class BillboardRenderer {
         continue;
       }
 
-      visible.push({ thing, patch, projected });
+      visible.push({ thing, patch, projected, flip });
     }
 
     visible.sort((a, b) => b.projected.distance - a.projected.distance);
@@ -169,6 +189,7 @@ export class BillboardRenderer {
     for (const entry of visible) {
       const useColormap = entry.thing.fullbright ? fullbright : colormap;
       const { clipbot, cliptop } = computeSpriteClip(entry.projected, drawSegs, drawSegCount, VIEWHEIGHT);
+      renderMaskedSegsBehindSprite(entry.projected, drawSegs, drawSegCount, wallDrawer);
       this.renderer.drawPatchScaled(
         entry.projected.x,
         entry.projected.y,
@@ -179,6 +200,7 @@ export class BillboardRenderer {
         clipbot,
         cliptop,
         entry.projected.x1,
+        entry.flip,
       );
     }
   }

@@ -1,4 +1,4 @@
-import { ANGLETOFINESHIFT, FINEANGLES, FINEMASK } from '../../core/angles.js';
+import { ANGLETOFINESHIFT, FINEANGLES, FINEMASK, fineAngleIndex } from '../../core/angles.js';
 import { PLAYER_RADIUS, PT_ADDLINES, USERANGE } from '../../core/gameConstants.js';
 import { fixedMul } from '../../math/fixed.js';
 import { lineOpening, pointOnLineSide } from '../../math/mapGeometry.js';
@@ -78,7 +78,7 @@ function useLineRay(collision, mo, ctx, x1, y1, fineAngle) {
 export function useLines(collision, player, ctx) {
   const mo = player.mo;
   const tables = collision.tables;
-  const fineAngle = (mo.angle >> ANGLETOFINESHIFT) & FINEMASK;
+  const fineAngle = fineAngleIndex(mo.angle);
   const perpAngle = (fineAngle + (FINEANGLES / 4)) & FINEMASK;
   const shoulderX = fixedMul(PLAYER_RADIUS, tables.finecosine[perpAngle]);
   const shoulderY = fixedMul(PLAYER_RADIUS, tables.finesine[perpAngle]);

@@ -3,6 +3,35 @@ import { SPR_CLIP_BOTTOM_OPEN, SPR_CLIP_TOP_OPEN } from './ClipSegList.js';
 import { pointOnSegSide } from '../math/viewMath.js';
 
 /**
+ * Draw masked mid-textures that lie behind a sprite (r_things.c — R_DrawSprite).
+ * @param {SpriteClipInput} spr
+ * @param {import('./WallDrawer.js').DrawSeg[]} drawSegs
+ * @param {number} drawSegCount
+ * @param {import('./WallDrawer.js').WallDrawer} wallDrawer
+ */
+export function renderMaskedSegsBehindSprite(spr, drawSegs, drawSegCount, wallDrawer) {
+  for (let i = drawSegCount - 1; i >= 0; i--) {
+    const ds = drawSegs[i];
+    if (ds.x1 > spr.x2 || ds.x2 < spr.x1 || (!ds.silhouette && !ds.maskedtexturecol)) {
+      continue;
+    }
+
+    const r1 = Math.max(ds.x1, spr.x1);
+    const r2 = Math.min(ds.x2, spr.x2);
+    const scale = ds.scale1 > ds.scale2 ? ds.scale1 : ds.scale2;
+    const lowscale = ds.scale1 > ds.scale2 ? ds.scale2 : ds.scale1;
+
+    if (scale < spr.scale
+      || (lowscale < spr.scale && !pointOnSegSide(spr.gx, spr.gy, ds.curline))) {
+      if (ds.maskedtexturecol) {
+        wallDrawer.renderMaskedSegRange(ds, r1, r2);
+      }
+      continue;
+    }
+  }
+}
+
+/**
  * @typedef {Object} SpriteClipInput
  * @property {number} x1
  * @property {number} x2
@@ -30,7 +59,7 @@ export function computeSpriteClip(spr, drawSegs, drawSegCount, viewHeight) {
 
   for (let i = drawSegCount - 1; i >= 0; i--) {
     const ds = drawSegs[i];
-    if (ds.x1 > spr.x2 || ds.x2 < spr.x1 || !ds.silhouette) {
+    if (ds.x1 > spr.x2 || ds.x2 < spr.x1 || (!ds.silhouette && !ds.maskedtexturecol)) {
       continue;
     }
 

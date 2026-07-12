@@ -1,5 +1,8 @@
 import { FRACUNIT } from '../core/renderConstants.js';
 import { angleFromDegrees } from '../core/angles.js';
+import { DI_NODIR } from './monster/EnemyMove.js';
+import { monsterArchetypeForType } from './monster/monsterInfo.js';
+import { setMobjState } from './monster/MobjCombat.js';
 import { mobjDefForType } from './mobjInfo.js';
 
 /**
@@ -17,15 +20,48 @@ import { mobjDefForType } from './mobjInfo.js';
  * @property {string|null} pickup
  * @property {number} mapType
  * @property {boolean} removed
+ * @property {string|null} [monsterType]
+ * @property {import('./monster/monsterInfo.js').MonsterArchetype|null} [monsterDef]
+ * @property {string} [state]
+ * @property {number} [stateTics]
+ * @property {number} [health]
+ * @property {number} [mass]
+ * @property {import('./Mobj.js').Mobj|null} [target]
+ * @property {number} [threshold]
+ * @property {number} [reactiontime]
+ * @property {number} [movedir]
+ * @property {number} [movecount]
+ * @property {number} [momx]
+ * @property {number} [momy]
+ * @property {number} [floorz]
+ * @property {number} [ceilingz]
+ * @property {import('./Level.js').LevelSubsector|null} [subsector]
+ * @property {import('./Player.js').Player|null} [playerObject]
+ * @property {boolean} [stateEntered]
+ * @property {string|null} [pendingState]
  */
 
 const MF_NOTSINGLE = 16;
 
 /**
- * @param {import('./MapLoader.js').MapThing} thing
- * @param {number} [skill=2] Hurt me plenty
+ * Skill spawn bit (p_mobj.c — P_SpawnMapThing).
+ * @param {number} skill 1=baby, 2=hurt me plenty, 3=ultra violence, 4=nightmare
  */
-export function shouldSpawnMapThing(thing, skill = 2) {
+export function skillSpawnBit(skill) {
+  if (skill <= 1) {
+    return 1;
+  }
+  if (skill >= 4) {
+    return 4;
+  }
+  return 1 << (skill - 1);
+}
+
+/**
+ * @param {import('./MapLoader.js').MapThing} thing
+ * @param {number} [skill=3] Ultra violence — full E1M1 monster placement
+ */
+export function shouldSpawnMapThing(thing, skill = 3) {
   if (thing.type >= 1 && thing.type <= 4) {
     return false;
   }
@@ -35,15 +71,9 @@ export function shouldSpawnMapThing(thing, skill = 2) {
   if (thing.options & MF_NOTSINGLE) {
     return false;
   }
-  if (thing.type >= 3001 && thing.type <= 6999) {
-    return false;
-  }
 
-  const mask = 1 << (skill - 1);
-  if (thing.options === 0) {
-    return true;
-  }
-  return (thing.options & mask) !== 0;
+  const bit = skillSpawnBit(skill);
+  return (thing.options & bit) !== 0;
 }
 
 /**
@@ -57,34 +87,66 @@ export function spawnMapThing(level, thing) {
     return null;
   }
 
+  const monsterDef = monsterArchetypeForType(thing.type);
   const x = thing.x * FRACUNIT;
   const y = thing.y * FRACUNIT;
   const subsector = level.findSubsector(x, y);
   const floor = subsector.sector.floorHeight;
+  const ceiling = subsector.sector.ceilingHeight;
 
-  return {
+  /** @type {MapThingMobj} */
+  const mobj = {
     x,
     y,
     z: floor,
     angle: angleFromDegrees(thing.angle),
     radius: def.radius,
     height: def.height,
-    flags: def.flags,
+    flags: monsterDef ? monsterDef.flags : def.flags,
     sprite: def.sprite,
     frame: def.frame ?? 0,
     fullbright: def.fullbright ?? false,
     pickup: def.pickup ?? null,
     mapType: thing.type,
     removed: false,
+    floorz: floor,
+    ceilingz: ceiling,
+    subsector,
+    momx: 0,
+    momy: 0,
+    target: null,
+    threshold: 0,
+    movedir: DI_NODIR,
+    movecount: 0,
+    monsterType: null,
+    monsterDef: null,
+    state: '',
+    stateTics: 0,
+    health: 0,
+    mass: 100,
+    reactiontime: 0,
+    stateEntered: false,
+    pendingState: null,
   };
+
+  if (monsterDef) {
+    mobj.monsterType = monsterDef.id;
+    mobj.monsterDef = monsterDef;
+    mobj.health = monsterDef.spawnhealth;
+    mobj.mass = monsterDef.mass;
+    mobj.reactiontime = monsterDef.reactiontime;
+    setMobjState(mobj, monsterDef.spawnState);
+  }
+
+  return mobj;
 }
 
 /**
  * @param {import('./Level.js').Level} level
- * @param {number} [skill=2]
+ * @param {number} [skill=3]
  * @returns {MapThingMobj[]}
  */
-export function spawnMapThings(level, skill = 2) {
+export function spawnMapThings(level, skill = 3) {
   /** @type {MapThingMobj[]} */
   const spawned = [];
 

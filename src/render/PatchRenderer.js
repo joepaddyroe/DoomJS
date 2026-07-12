@@ -169,8 +169,9 @@ export class PatchRenderer {
    * @param {Int16Array|null} [clipbot]
    * @param {Int16Array|null} [cliptop]
    * @param {number} [clipX1=0]
+   * @param {boolean} [flip=false]
    */
-  drawPatchScaled(x, y, patch, patchData, colormap, scale, clipbot = null, cliptop = null, clipX1 = 0) {
+  drawPatchScaled(x, y, patch, patchData, colormap, scale, clipbot = null, cliptop = null, clipX1 = 0, flip = false) {
     if (scale <= 0) {
       return;
     }
@@ -186,12 +187,13 @@ export class PatchRenderer {
     const startX = x - ((patch.leftOffset * scale) >> FRACBITS);
     const sprtopscreen = (y - ((patch.topOffset * scale) >> FRACBITS)) << FRACBITS;
     const xiscale = fixedDiv(FRACUNIT, scale);
-    let frac = 0;
+    let frac = flip ? (patch.width - 1) << FRACBITS : 0;
+    const fracStep = flip ? -xiscale : xiscale;
 
     for (let destCol = 0; destCol < destWidth; destCol++) {
       const screenX = startX + destCol;
-      const srcCol = Math.min(patch.width - 1, frac >> FRACBITS);
-      frac += xiscale;
+      const srcCol = Math.min(patch.width - 1, Math.max(0, frac >> FRACBITS));
+      frac += fracStep;
 
       if (screenX < 0 || screenX >= screenWidth) {
         continue;

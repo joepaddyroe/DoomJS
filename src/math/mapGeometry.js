@@ -130,17 +130,20 @@ export function makeDivline(line) {
 }
 
 /**
+ * Fraction along trace (v2) where it crosses div (v1).
+ * Full 64-bit math — the >>8 FixedMul form in p_maputl.c loses precision on
+ * axis-aligned traces and breaks small mobj hitscan (barrels).
  * @param {{ x: number, y: number, dx: number, dy: number }} trace
  * @param {{ x: number, y: number, dx: number, dy: number }} div
  */
 export function interceptVector(trace, div) {
-  const den = fixedMul(trace.dy >> 8, div.dx) - fixedMul(trace.dx >> 8, div.dy);
-  if (den === 0) {
+  const den = BigInt(trace.dx) * BigInt(div.dy) - BigInt(trace.dy) * BigInt(div.dx);
+  if (den === 0n) {
     return 0;
   }
-  const num = fixedMul((trace.x - div.x) >> 8, trace.dy)
-    + fixedMul((div.y - trace.y) >> 8, trace.dx);
-  return fixedDiv(num, den);
+  const num = BigInt(div.x - trace.x) * BigInt(div.dy)
+    - BigInt(div.y - trace.y) * BigInt(div.dx);
+  return Number((num << 16n) / den);
 }
 
 /**

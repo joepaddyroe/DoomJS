@@ -126,6 +126,7 @@ async function start() {
             trigTables,
             drawSegs,
             drawSegCount,
+            bspRenderer.walls,
             playSession.player.extralight,
           );
           billboardRenderer.drawPuffs(
@@ -135,6 +136,7 @@ async function start() {
             trigTables,
             drawSegs,
             drawSegCount,
+            bspRenderer.walls,
             playSession.player.extralight,
           );
         }
@@ -170,6 +172,7 @@ window.addEventListener('resize', () => {
         trigTables,
         drawSegs,
         drawSegCount,
+        bspRenderer.walls,
         playSession.player.extralight,
       );
       billboardRenderer.drawPuffs(
@@ -179,6 +182,7 @@ window.addEventListener('resize', () => {
         trigTables,
         drawSegs,
         drawSegCount,
+        bspRenderer.walls,
         playSession.player.extralight,
       );
     }

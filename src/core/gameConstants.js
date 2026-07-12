@@ -59,6 +59,9 @@ export const THRUST_SCALE = 2048;
 /** Use line reach (p_local.h — USERANGE). */
 export const USERANGE = 64 * FRACUNIT;
 
+/** Melee attack range (p_local.h — MELEERANGE). */
+export const MELEERANGE = 64 * FRACUNIT;
+
 /** Door movement speed / wait (p_spec.h). */
 export const VDOORSPEED = FRACUNIT * 2;
 export const VDOORWAIT = 150;

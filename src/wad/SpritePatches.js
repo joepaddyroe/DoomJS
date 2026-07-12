@@ -1,15 +1,18 @@
 import { PatchRenderer } from '../render/PatchRenderer.js';
 import { FF_FRAMEMASK, PS_FLASH, PS_WEAPON, WEAPON_STATES, spriteLumpName } from '../game/weapons/weaponConstants.js';
 import { FRACBITS, FRACUNIT, SCREENWIDTH } from '../core/renderConstants.js';
+import { SpriteRotationTable } from './SpriteRotationTable.js';
 
 /**
  * @param {string} spritePrefix
  * @param {number} frame
  * @param {boolean} [fullbright=false]
+ * @param {number} [rotation=-1] 0–7 for rotating sprites; -1 uses non-directional "0" suffix
  */
-export function mapSpriteLumpName(spritePrefix, frame, fullbright = false) {
+export function mapSpriteLumpName(spritePrefix, frame, fullbright = false, rotation = -1) {
   const letter = String.fromCharCode('A'.charCodeAt(0) + (frame & FF_FRAMEMASK));
-  return `${spritePrefix}${letter}0`;
+  const rotSuffix = rotation < 0 ? '0' : String((rotation & 7) + 1);
+  return `${spritePrefix}${letter}${rotSuffix}`;
 }
 
 /**
@@ -21,6 +24,7 @@ export class SpritePatches {
    */
   constructor(wad) {
     this.wad = wad;
+    this.rotations = new SpriteRotationTable(wad);
     /** @type {Map<string, { header: import('../render/PatchRenderer.js').PatchHeader, data: Uint8Array }>} */
     this.cache = new Map();
   }
@@ -45,6 +49,28 @@ export class SpritePatches {
       this.cache.set(name, patch);
     }
     return patch;
+  }
+
+  /**
+   * Resolve a world sprite with optional 8-way rotation (r_things.c).
+   * @param {string} spritePrefix
+   * @param {number} frame
+   * @param {number} [rotation=0] 0–7
+   * @returns {{ patch: { header: import('../render/PatchRenderer.js').PatchHeader, data: Uint8Array }, flip: boolean }|null}
+   */
+  getWorldSprite(spritePrefix, frame, rotation = 0) {
+    const resolved = this.rotations.resolve(spritePrefix, frame, rotation);
+    if (resolved) {
+      return { patch: this.getPatchByName(resolved.lumpName), flip: resolved.flip };
+    }
+
+    const letter = String.fromCharCode('A'.charCodeAt(0) + (frame & FF_FRAMEMASK));
+    const flatName = `${spritePrefix}${letter}0`;
+    try {
+      return { patch: this.getPatchByName(flatName), flip: false };
+    } catch {
+      return null;
+    }
   }
 }
 

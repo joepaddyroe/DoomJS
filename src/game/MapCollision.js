@@ -8,7 +8,6 @@ import { FRACBITS, FRACUNIT } from '../core/renderConstants.js';
 import {
   ANG180,
   ANG90,
-  ANGLETOFINESHIFT,
   fineAngleIndex,
 } from '../core/angles.js';
 import {
@@ -42,7 +41,7 @@ import {
 import { ML_TWOSIDED } from './mapFormat.js';
 import { createTrigTables } from '../math/tables.js';
 import { pointToAngle } from '../math/viewMath.js';
-import { MF_PICKUP, MF_SOLID, MF_SPECIAL } from './mobjFlags.js';
+import { MF_PICKUP, MF_SHOOTABLE, MF_SOLID, MF_SPECIAL } from './mobjFlags.js';
 
 /**
  * Map collision and movement (p_map.c, p_maputl.c, p_mobj.c).
@@ -52,11 +51,13 @@ export class MapCollision {
    * @param {import('./Level.js').Level} level
    * @param {import('./MapThingSpawner.js').MapThingMobj[]} [mapThings]
    * @param {import('./ItemPickup.js').ItemPickup|null} [pickups]
+   * @param {import('./Mobj.js').Mobj|null} [playerMo]
    */
-  constructor(level, mapThings = [], pickups = null) {
+  constructor(level, mapThings = [], pickups = null, playerMo = null) {
     this.level = level;
     this.mapThings = mapThings;
     this.pickups = pickups;
+    this.playerMo = playerMo;
     this.tables = createTrigTables();
     this.tantoangle = this.tables.tantoangle;
 
@@ -80,7 +81,7 @@ export class MapCollision {
     this.trace = { x: 0, y: 0, dx: 0, dy: 0 };
     this.intercepts = [];
     for (let i = 0; i < MAXINTERCEPTS; i++) {
-      this.intercepts.push({ frac: 0, isaline: false, line: null });
+      this.intercepts.push({ frac: 0, isaline: false, line: null, thing: null });
     }
     this.interceptCount = 0;
   }
@@ -137,6 +138,12 @@ export class MapCollision {
 
     for (const thing of this.mapThings) {
       if (!this.checkThing(thing)) {
+        return false;
+      }
+    }
+
+    if (this.playerMo && this.tmthing !== this.playerMo) {
+      if (!this.checkThing(this.playerMo)) {
         return false;
       }
     }
@@ -585,7 +592,7 @@ export class MapCollision {
   }
 
   /**
-   * Hitscan trace — stops at the first blocking line (p_map.c — PTR_ShootTraverse).
+   * Hitscan trace — stops at the first blocking line or shootable mobj.
    * @param {number} x1
    * @param {number} y1
    * @param {number} x2
@@ -593,9 +600,15 @@ export class MapCollision {
    * @param {number} shootZ
    * @param {number} slope
    * @param {number} attackrange
-   * @returns {{ hit: boolean, x?: number, y?: number, z?: number }}
+   * @param {{ shootThing?: object|null, damage?: number, aimMode?: boolean, onThingHit?: (thing: object, x: number, y: number, z: number) => void, onAimThing?: (thing: object, dist: number) => void }|null} [options]
+   * @returns {{ hit: boolean, x?: number, y?: number, z?: number, thing?: object }}
    */
-  shootTraverse(x1, y1, x2, y2, shootZ, slope, attackrange) {
+  shootTraverse(x1, y1, x2, y2, shootZ, slope, attackrange, options = null) {
+    const shootThing = options?.shootThing ?? null;
+    const damage = options?.damage ?? 0;
+    const aimMode = options?.aimMode ?? false;
+    const onThingHit = options?.onThingHit ?? null;
+    const onAimThing = options?.onAimThing ?? null;
     const blockmap = this.level.blockmap;
     if (((x1 - blockmap.orgX) & (MAPBLOCKSIZE - 1)) === 0) {
       x1 += FRACUNIT;
@@ -678,13 +691,37 @@ export class MapCollision {
       }
     }
 
+    if (shootThing) {
+      this.addShootableIntercepts(shootThing);
+    }
+
     const active = this.intercepts.slice(0, this.interceptCount);
     active.sort((a, b) => a.frac - b.frac);
-
     const aimslope = slope;
 
     for (let i = 0; i < active.length; i++) {
       const incept = active[i];
+      if (!incept.isaline) {
+        const hit = this.shootHitThing(
+          incept,
+          shootZ,
+          aimslope,
+          attackrange,
+          shootThing,
+          damage,
+          onThingHit,
+          aimMode,
+          onAimThing,
+        );
+        if (hit) {
+          if (hit.aim) {
+            return { hit: false };
+          }
+          return hit;
+        }
+        continue;
+      }
+
       const li = incept.line;
       if (!li) {
         continue;
@@ -719,6 +756,233 @@ export class MapCollision {
     }
 
     return { hit: false };
+  }
+
+  /**
+   * @param {object} shootThing
+   */
+  addShootableIntercepts(shootThing) {
+    /** @type {object[]} */
+    const candidates = [...this.mapThings];
+    if (this.playerMo && this.playerMo !== shootThing) {
+      candidates.push(this.playerMo);
+    }
+
+    for (const thing of candidates) {
+      if (thing === shootThing) {
+        continue;
+      }
+      if (!(thing.flags & MF_SHOOTABLE)) {
+        continue;
+      }
+      if (thing.health !== undefined && thing.health <= 0) {
+        continue;
+      }
+      this.addThingShootIntercept(thing);
+    }
+  }
+
+  /**
+   * Fraction along the current trace where it passes closest to a thing center,
+   * when the corner-crossing box test does not fire.
+   * @param {object} thing
+   * @returns {number}
+   */
+  thingCenterInterceptFrac(thing) {
+    const trace = this.trace;
+    const den = BigInt(trace.dx) * BigInt(trace.dx) + BigInt(trace.dy) * BigInt(trace.dy);
+    if (den === 0n) {
+      return -1;
+    }
+
+    const num = BigInt(thing.x - trace.x) * BigInt(trace.dx)
+      + BigInt(thing.y - trace.y) * BigInt(trace.dy);
+    const frac = Number((num << 16n) / den);
+    if (frac < 0 || frac > FRACUNIT) {
+      return -1;
+    }
+
+    const hitX = trace.x + Number((BigInt(frac) * BigInt(trace.dx)) >> 16n);
+    const hitY = trace.y + Number((BigInt(frac) * BigInt(trace.dy)) >> 16n);
+    const dx = thing.x - hitX;
+    const dy = thing.y - hitY;
+    const distSq = BigInt(dx) * BigInt(dx) + BigInt(dy) * BigInt(dy);
+    const radiusSq = BigInt(thing.radius) * BigInt(thing.radius);
+    if (distSq > radiusSq) {
+      return -1;
+    }
+
+    return frac;
+  }
+
+  /**
+   * @param {object} thing
+   * @param {number} shootZ
+   * @param {number} aimslope
+   * @param {number} attackrange
+   */
+  addThingShootIntercept(thing, shootZ, aimslope, attackrange) {
+    const trace = this.trace;
+    const tracePositive = (trace.dx ^ trace.dy) > 0;
+
+    let x1;
+    let y1;
+    let x2;
+    let y2;
+    if (tracePositive) {
+      x1 = thing.x - thing.radius;
+      y1 = thing.y + thing.radius;
+      x2 = thing.x + thing.radius;
+      y2 = thing.y - thing.radius;
+    } else {
+      x1 = thing.x - thing.radius;
+      y1 = thing.y - thing.radius;
+      x2 = thing.x + thing.radius;
+      y2 = thing.y + thing.radius;
+    }
+
+    const s1 = pointOnDivlineSide(x1, y1, trace);
+    const s2 = pointOnDivlineSide(x2, y2, trace);
+    let frac = -1;
+    if (s1 !== s2) {
+      const div = { x: x1, y: y1, dx: x2 - x1, dy: y2 - y1 };
+      frac = interceptVector(trace, div);
+    }
+    if (frac < 0 || frac > FRACUNIT) {
+      frac = this.thingCenterInterceptFrac(thing);
+    }
+    if (frac < 0 || frac > FRACUNIT) {
+      return;
+    }
+
+    if (this.interceptCount >= MAXINTERCEPTS) {
+      return;
+    }
+
+    const entry = this.intercepts[this.interceptCount++];
+    entry.frac = frac;
+    entry.isaline = false;
+    entry.line = null;
+    entry.thing = thing;
+  }
+
+  /**
+   * Auto-aim slope toward the first shootable thing along a trace (p_map.c — P_AimLineAttack).
+   * @param {object} mo
+   * @param {number} angle
+   * @param {number} distance
+   * @returns {number}
+   */
+  aimLineAttack(mo, angle, distance) {
+    const idx = fineAngleIndex(angle);
+    const x2 = mo.x + ((distance >> FRACBITS) * this.tables.finecosine[idx]) | 0;
+    const y2 = mo.y + ((distance >> FRACBITS) * this.tables.finesine[idx]) | 0;
+    const shootZ = mo.z + (mo.height >> 1) + 8 * FRACUNIT;
+
+    let aimSlope = 0;
+    this.shootTraverse(mo.x, mo.y, x2, y2, shootZ, 0, distance, {
+      shootThing: mo,
+      damage: 0,
+      aimMode: true,
+      onAimThing: (thing, dist) => {
+        const top = fixedDiv(thing.z + thing.height - shootZ, dist);
+        const bottom = fixedDiv(thing.z - shootZ, dist);
+        aimSlope = (top + bottom) >> 1;
+      },
+    });
+    return aimSlope;
+  }
+
+  /**
+   * True when no solid wall blocks a straight line between two points.
+   * @param {number} x1
+   * @param {number} y1
+   * @param {number} x2
+   * @param {number} y2
+   */
+  lineOfSightClear(x1, y1, x2, y2) {
+    let blocked = false;
+    this.pathTraverse(x1, y1, x2, y2, PT_ADDLINES, (incept) => {
+      const li = incept.line;
+      if (!li) {
+        return true;
+      }
+      if (!(li.flags & ML_TWOSIDED)) {
+        blocked = true;
+        return false;
+      }
+      const opening = lineOpening(li);
+      if (opening.openrange <= 0) {
+        blocked = true;
+        return false;
+      }
+      return true;
+    });
+    return !blocked;
+  }
+
+  /**
+   * @param {{ frac: number, thing: object|null }} incept
+   * @param {number} shootZ
+   * @param {number} aimslope
+   * @param {number} attackrange
+   * @param {object|null} shootThing
+   * @param {number} damage
+   * @param {((thing: object, x: number, y: number, z: number) => void)|null} onThingHit
+   * @param {boolean} aimMode
+   * @param {((thing: object, dist: number) => void)|null} onAimThing
+   */
+  shootHitThing(
+    incept,
+    shootZ,
+    aimslope,
+    attackrange,
+    shootThing,
+    damage,
+    onThingHit,
+    aimMode = false,
+    onAimThing = null,
+  ) {
+    const thing = incept.thing;
+    if (!thing || thing === shootThing) {
+      return null;
+    }
+    if (!(thing.flags & MF_SHOOTABLE)) {
+      return null;
+    }
+
+    const dist = fixedMul(attackrange, incept.frac);
+    if (!dist) {
+      return null;
+    }
+
+    const thingTopSlope = fixedDiv(thing.z + thing.height - shootZ, dist);
+    if (thingTopSlope < aimslope) {
+      return null;
+    }
+
+    const thingBottomSlope = fixedDiv(thing.z - shootZ, dist);
+    if (thingBottomSlope > aimslope) {
+      return null;
+    }
+
+    if (aimMode) {
+      if (onAimThing) {
+        onAimThing(thing, dist);
+      }
+      return { aim: true };
+    }
+
+    let frac = incept.frac - fixedDiv(10 * FRACUNIT, attackrange);
+    const x = this.trace.x + fixedMul(this.trace.dx, frac);
+    const y = this.trace.y + fixedMul(this.trace.dy, frac);
+    const z = shootZ + fixedMul(aimslope, fixedMul(frac, attackrange));
+
+    if (onThingHit) {
+      onThingHit(thing, x, y, z);
+    }
+
+    return { hit: true, x, y, z, thing };
   }
 
   /**

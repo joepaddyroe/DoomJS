@@ -1,32 +1,39 @@
-import { ANGLETOFINESHIFT } from '../core/angles.js';
+import { fineAngleIndex } from '../core/angles.js';
 import { FRACBITS, FRACUNIT } from '../core/renderConstants.js';
 import { MISSILERANGE } from './weapons/weaponConstants.js';
 import { gameRandom } from './GameRandom.js';
 import { createTrigTables } from '../math/tables.js';
+import { damageMobj } from './monster/MobjCombat.js';
 
 /**
  * Hitscan shooting (p_map.c — P_LineAttack, p_pspr.c — P_GunShot).
  */
 export class Hitscan {
   /**
-   * @param {import('../MapCollision.js').MapCollision} collision
+   * @param {import('./MapCollision.js').MapCollision} collision
    * @param {import('../render/BillboardRenderer.js').PuffManager} puffs
+   * @param {import('./Player.js').Player|null} [player]
    */
-  constructor(collision, puffs) {
+  constructor(collision, puffs, player = null) {
     this.collision = collision;
     this.puffs = puffs;
+    this.player = player;
     this.tables = createTrigTables();
     this.bulletSlope = 0;
   }
 
-  /** @param {import('../Mobj.js').Mobj} mo */
+  /** @param {import('./Mobj.js').Mobj|import('./MapThingSpawner.js').MapThingMobj} mo */
   bulletSlopeFor(mo) {
-    this.bulletSlope = 0;
+    if (mo.playerObject && this.player) {
+      this.bulletSlope = this.collision.aimLineAttack(mo, mo.angle, MISSILERANGE);
+    } else {
+      this.bulletSlope = 0;
+    }
     return this.bulletSlope;
   }
 
   /**
-   * @param {import('../Mobj.js').Mobj} mo
+   * @param {import('./Mobj.js').Mobj|import('./MapThingSpawner.js').MapThingMobj} mo
    * @param {boolean} accurate
    */
   gunShot(mo, accurate) {
@@ -41,7 +48,7 @@ export class Hitscan {
     return damage;
   }
 
-  /** @param {import('../Mobj.js').Mobj} mo */
+  /** @param {import('./Mobj.js').Mobj} mo */
   fireShotgun(mo) {
     for (let i = 0; i < 7; i++) {
       this.gunShot(mo, false);
@@ -49,14 +56,14 @@ export class Hitscan {
   }
 
   /**
-   * @param {import('../Mobj.js').Mobj} mo
+   * @param {import('./Mobj.js').Mobj|import('./MapThingSpawner.js').MapThingMobj} mo
    * @param {number} angle
    * @param {number} distance
    * @param {number} slope
    * @param {number} damage
    */
   lineAttack(mo, angle, distance, slope, damage) {
-    const idx = (angle >>> 0) >> ANGLETOFINESHIFT;
+    const idx = fineAngleIndex(angle);
     const x2 = mo.x + ((distance >> FRACBITS) * this.tables.finecosine[idx]) | 0;
     const y2 = mo.y + ((distance >> FRACBITS) * this.tables.finesine[idx]) | 0;
     const shootZ = mo.z + (mo.height >> 1) + 8 * FRACUNIT;
@@ -69,9 +76,20 @@ export class Hitscan {
       shootZ,
       slope,
       distance,
+      {
+        shootThing: mo,
+        damage,
+        onThingHit: (thing, x, y, z) => {
+          if (this.player) {
+            damageMobj(thing, mo, mo, damage, this.player);
+          }
+          this.puffs.spawn(x, y, z);
+        },
+      },
     );
 
-    if (hit.hit && hit.x !== undefined && hit.y !== undefined && hit.z !== undefined) {
+    if (hit.hit && hit.thing === undefined
+      && hit.x !== undefined && hit.y !== undefined && hit.z !== undefined) {
       this.puffs.spawn(hit.x, hit.y, hit.z);
     }
   }

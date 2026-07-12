@@ -1,5 +1,12 @@
 import { FRACUNIT } from '../core/renderConstants.js';
 import { MF_COUNTITEM, MF_SOLID, MF_SPECIAL } from './mobjFlags.js';
+import {
+  BARREL_HEIGHT,
+  BARREL_RADIUS,
+  monsterArchetypeForType,
+  MONSTER_HEIGHT,
+  MONSTER_RADIUS,
+} from './monster/monsterInfo.js';
 
 /**
  * Map thing definition by editor type / doomednum (info.c — mobjinfo_t subset).
@@ -66,6 +73,11 @@ export const MOBJ_BY_TYPE = {
   48: { sprite: 'ELEC', flags: MF_SOLID, radius: 16 * FRACUNIT, height: 16 * FRACUNIT },
   55: { sprite: 'SMBT', fullbright: true, flags: MF_SOLID, radius: 16 * FRACUNIT, height: 16 * FRACUNIT },
   2028: { sprite: 'COLU', fullbright: true, flags: MF_SOLID, radius: 16 * FRACUNIT, height: 16 * FRACUNIT },
+
+  // Monsters (E1M1)
+  3004: { sprite: 'POSS', flags: 0, radius: MONSTER_RADIUS, height: MONSTER_HEIGHT, monster: true },
+  3001: { sprite: 'TROO', flags: 0, radius: MONSTER_RADIUS, height: MONSTER_HEIGHT, monster: true },
+  2035: { sprite: 'BAR1', flags: 0, radius: BARREL_RADIUS, height: BARREL_HEIGHT, monster: true },
 };
 
 /**

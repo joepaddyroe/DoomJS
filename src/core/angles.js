@@ -43,12 +43,12 @@ export const ML_MAPPED = 256;
 
 /** @param {number} angle BAM angle (unsigned 32-bit). @returns {number} finesine/finecosine index. */
 export function fineAngleIndex(angle) {
-  return ((angle >>> 0) >> ANGLETOFINESHIFT) & FINEMASK;
+  return (angle >>> ANGLETOFINESHIFT) & FINEMASK;
 }
 
 /** @param {number} angle BAM angle (unsigned 32-bit). @returns {number} finetangent index (4096 entries). */
 export function tangentAngleIndex(angle) {
-  const index = (angle >>> 0) >> ANGLETOFINESHIFT;
+  const index = angle >>> ANGLETOFINESHIFT;
   return index >= FINEANGLES / 2 ? (FINEANGLES / 2) - 1 : index;
 }
 

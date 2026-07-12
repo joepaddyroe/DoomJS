@@ -7,6 +7,7 @@ import { ThinkerList } from '../game/spec/ThinkerList.js';
 import { PuffManager } from '../render/BillboardRenderer.js';
 import { spawnMapThings } from '../game/MapThingSpawner.js';
 import { ItemPickup } from '../game/ItemPickup.js';
+import { tickMonsters } from '../game/monster/MonsterThink.js';
 
 /**
  * Active play state: player simulation + view for rendering.
@@ -22,9 +23,9 @@ export class PlaySession {
     this.player = player;
     this.things = spawnMapThings(level);
     this.pickups = new ItemPickup(sound);
-    this.collision = new MapCollision(level, this.things, this.pickups);
+    this.collision = new MapCollision(level, this.things, this.pickups, player.mo);
     this.puffs = new PuffManager();
-    this.hitscan = new Hitscan(this.collision, this.puffs);
+    this.hitscan = new Hitscan(this.collision, this.puffs, player);
     this.psprites = new Psprites(this.hitscan, sound);
     this.psprites.setup(player);
     this.thinkers = new ThinkerList();
@@ -55,6 +56,11 @@ export class PlaySession {
     this.thinkers.runAll();
     thinkWeaponChange(player);
     this.psprites.think(player);
+    tickMonsters(this.things, {
+      player,
+      collision,
+      hitscan: this.hitscan,
+    });
     this.puffs.tick();
   }
 

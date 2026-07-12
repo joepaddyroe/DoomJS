@@ -122,6 +122,19 @@ export function pointToAngle(x, y, viewX, viewY, tantoangle) {
 }
 
 /**
+ * Angle from (x1,y1) toward (x2,y2) — p_maputl.c R_PointToAngle2.
+ * @param {number} x1
+ * @param {number} y1
+ * @param {number} x2
+ * @param {number} y2
+ * @param {Uint32Array} tantoangle
+ * @returns {number}
+ */
+export function pointToAngle2(x1, y1, x2, y2, tantoangle) {
+  return pointToAngle(x2, y2, x1, y1, tantoangle);
+}
+
+/**
  * @param {number} x
  * @param {number} y
  * @param {number} viewX
