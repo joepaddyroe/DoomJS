@@ -8,6 +8,7 @@ import { PuffManager } from '../render/BillboardRenderer.js';
 import { spawnMapThings } from '../game/MapThingSpawner.js';
 import { ItemPickup } from '../game/ItemPickup.js';
 import { tickMonsters } from '../game/monster/MonsterThink.js';
+import { MissileManager } from '../game/monster/MissileManager.js';
 
 /**
  * Active play state: player simulation + view for rendering.
@@ -24,6 +25,8 @@ export class PlaySession {
     this.things = spawnMapThings(level);
     this.pickups = new ItemPickup(sound);
     this.collision = new MapCollision(level, this.things, this.pickups, player.mo);
+    this.collision.damagePlayer = player;
+    this.missiles = new MissileManager(level, this.collision);
     this.puffs = new PuffManager();
     this.hitscan = new Hitscan(this.collision, this.puffs, player);
     this.psprites = new Psprites(this.hitscan, sound, level);
@@ -60,7 +63,9 @@ export class PlaySession {
       player,
       collision,
       hitscan: this.hitscan,
+      missiles: this.missiles,
     });
+    this.missiles.tick(player);
     this.puffs.tick();
   }
 

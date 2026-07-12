@@ -12,3 +12,5 @@ export const MF_JUSTATTACKED = 1 << 27;
 export const MF_PICKUP = 0x800;
 /** p_mobj.h — deaf monsters need LOS even for sound alerts */
 export const MF_AMBUSH = 32;
+export const MF_MISSILE = 0x10000;
+export const MF_NOGRAVITY = 1 << 5;

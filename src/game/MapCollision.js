@@ -42,6 +42,8 @@ import { ML_TWOSIDED } from './mapFormat.js';
 import { createTrigTables } from '../math/tables.js';
 import { pointToAngle } from '../math/viewMath.js';
 import { MF_PICKUP, MF_SHOOTABLE, MF_SOLID, MF_SPECIAL } from './mobjFlags.js';
+import { gameRandom } from './GameRandom.js';
+import { damageMobj } from './monster/MobjCombat.js';
 
 /** Vertical auto-aim cone (p_map.c — P_AimLineAttack topslope/bottomslope). */
 const AIM_TOP_SLOPE = ((100 * FRACUNIT) / 160) | 0;
@@ -88,6 +90,13 @@ export class MapCollision {
       this.intercepts.push({ frac: 0, isaline: false, line: null, thing: null });
     }
     this.interceptCount = 0;
+
+    /** @type {import('./monster/MissileManager.js').MissileMobj[]} */
+    this.missiles = [];
+    /** @type {((mo: import('./monster/MissileManager.js').MissileMobj) => void)|null} */
+    this.onMissileExplode = null;
+    /** @type {import('./Player.js').Player|null} */
+    this.damagePlayer = null;
   }
 
   /**
@@ -146,6 +155,12 @@ export class MapCollision {
       }
     }
 
+    for (const missile of this.missiles) {
+      if (!missile.removed && !this.checkThing(missile)) {
+        return false;
+      }
+    }
+
     if (this.playerMo && this.tmthing !== this.playerMo) {
       if (!this.checkThing(this.playerMo)) {
         return false;
@@ -163,7 +178,47 @@ export class MapCollision {
     if (thing.removed) {
       return true;
     }
-    if (!(thing.flags & (MF_SOLID | MF_SPECIAL))) {
+
+    if (this.tmflags & MF_MISSILE) {
+      if (!(thing.flags & (MF_SOLID | MF_SPECIAL | MF_SHOOTABLE))) {
+        return true;
+      }
+
+      const blockdist = thing.radius + this.tmthing.radius;
+      if (Math.abs(thing.x - this.tmx) >= blockdist
+        || Math.abs(thing.y - this.tmy) >= blockdist) {
+        return true;
+      }
+
+      if (this.tmthing.z > thing.z + thing.height) {
+        return true;
+      }
+      if (this.tmthing.z + this.tmthing.height < thing.z) {
+        return true;
+      }
+
+      if (this.tmthing.target && thing === this.tmthing.target) {
+        return true;
+      }
+
+      if (!(thing.flags & MF_SHOOTABLE)) {
+        return !(thing.flags & MF_SOLID);
+      }
+
+      const damage = ((gameRandom() % 8) + 1) * (this.tmthing.missileDamage ?? 3);
+      if (this.damagePlayer) {
+        damageMobj(
+          thing,
+          this.tmthing,
+          this.tmthing.target,
+          damage,
+          this.damagePlayer,
+        );
+      }
+      return false;
+    }
+
+    if (!(thing.flags & (MF_SOLID | MF_SPECIAL | MF_SHOOTABLE))) {
       return true;
     }
 
@@ -236,6 +291,15 @@ export class MapCollision {
     }
 
     if (!(thing.flags & MF_NOCLIP)) {
+      if (thing.flags & MF_MISSILE) {
+        thing.floorz = this.tmfloorz;
+        thing.ceilingz = this.tmceilingz;
+        thing.x = x;
+        thing.y = y;
+        thing.subsector = this.level.findSubsector(x, y);
+        return true;
+      }
+
       if (this.tmceilingz - this.tmfloorz < thing.height) {
         return false;
       }
@@ -302,6 +366,11 @@ export class MapCollision {
       if (!this.tryMove(mo, ptryx, ptryy)) {
         if (mo.player) {
           this.slideMove(mo);
+        } else if (mo.flags & MF_MISSILE) {
+          if (this.onMissileExplode) {
+            this.onMissileExplode(mo);
+          }
+          return;
         } else {
           mo.momx = 0;
           mo.momy = 0;
@@ -310,6 +379,10 @@ export class MapCollision {
     } while (xmove || ymove);
 
     if (mo.z > mo.floorz) {
+      return;
+    }
+
+    if (mo.flags & (MF_MISSILE)) {
       return;
     }
 
@@ -1097,6 +1170,35 @@ export class MapCollision {
     }
 
     return { hit: true, x, y, z };
+  }
+
+  /** @param {import('./monster/MissileManager.js').MissileMobj} mo */
+  missileZMovement(mo) {
+    const subsector = this.level.findSubsector(mo.x, mo.y);
+    mo.subsector = subsector;
+    mo.floorz = subsector.sector.floorHeight;
+    mo.ceilingz = subsector.sector.ceilingHeight;
+
+    mo.z += mo.momz;
+
+    if (mo.z <= mo.floorz) {
+      mo.z = mo.floorz;
+      if (mo.flags & MF_MISSILE) {
+        if (this.onMissileExplode) {
+          this.onMissileExplode(mo);
+        }
+      }
+      return;
+    }
+
+    if (mo.z + mo.height > mo.ceilingz) {
+      mo.z = mo.ceilingz - mo.height;
+      if (mo.flags & MF_MISSILE) {
+        if (this.onMissileExplode) {
+          this.onMissileExplode(mo);
+        }
+      }
+    }
   }
 
   /** @param {import('./Player.js').Player} player */

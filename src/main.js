@@ -120,7 +120,7 @@ async function start() {
         if (billboardRenderer) {
           const { drawSegs, drawSegCount } = bspRenderer.ctx;
           billboardRenderer.drawThings(
-            playSession.things,
+            [...playSession.things, ...playSession.missiles.missiles],
             playSession.view(),
             bspRenderer.ctx.viewSetup,
             trigTables,
@@ -166,7 +166,7 @@ window.addEventListener('resize', () => {
     if (billboardRenderer) {
       const { drawSegs, drawSegCount } = bspRenderer.ctx;
       billboardRenderer.drawThings(
-        playSession.things,
+        [...playSession.things, ...playSession.missiles.missiles],
         playSession.view(),
         bspRenderer.ctx.viewSetup,
         trigTables,

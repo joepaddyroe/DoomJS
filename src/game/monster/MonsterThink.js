@@ -21,6 +21,7 @@ const tables = createTrigTables();
  * @property {import('../Player.js').Player} player
  * @property {import('../MapCollision.js').MapCollision} collision
  * @property {import('../Hitscan.js').Hitscan} hitscan
+ * @property {import('./MissileManager.js').MissileManager} missiles
  */
 
 /**
@@ -155,7 +156,7 @@ function aPosAttack(actor, ctx) {
 
   aFaceTarget(actor);
   let angle = actor.angle;
-  const slope = 0;
+  const slope = ctx.collision.aimLineAttack(actor, angle, MISSILERANGE);
   angle = (angle + ((gameRandom() - gameRandom()) << 20)) >>> 0;
   const damage = ((gameRandom() % 5) + 1) * 3;
   ctx.hitscan.lineAttack(actor, angle, MISSILERANGE, slope, damage);
@@ -174,7 +175,10 @@ function aTroopAttack(actor, ctx) {
   if (checkMeleeRange(actor, ctx.collision)) {
     const damage = (gameRandom() % 8 + 1) * 3;
     damageMobj(actor.target, actor, actor, damage, ctx.player);
+    return;
   }
+
+  ctx.missiles.spawn('troopshot', actor, actor.target);
 }
 
 /** @param {import('../MapThingSpawner.js').MapThingMobj} actor */
