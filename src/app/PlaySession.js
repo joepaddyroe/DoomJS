@@ -26,7 +26,7 @@ export class PlaySession {
     this.collision = new MapCollision(level, this.things, this.pickups, player.mo);
     this.puffs = new PuffManager();
     this.hitscan = new Hitscan(this.collision, this.puffs, player);
-    this.psprites = new Psprites(this.hitscan, sound);
+    this.psprites = new Psprites(this.hitscan, sound, level);
     this.psprites.setup(player);
     this.thinkers = new ThinkerList();
     this.doorCtx = {

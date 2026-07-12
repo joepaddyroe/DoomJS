@@ -1,7 +1,6 @@
 import { ANG90 } from '../../core/angles.js';
-import { MELEERANGE } from '../../core/gameConstants.js';
 import { gameRandom } from '../GameRandom.js';
-import { MF_JUSTATTACKED, MF_SHOOTABLE, MF_SOLID } from '../mobjFlags.js';
+import { MF_JUSTATTACKED, MF_SHOOTABLE, MF_SOLID, MF_AMBUSH } from '../mobjFlags.js';
 import { MISSILERANGE } from '../weapons/weaponConstants.js';
 import { damageMobj, setMobjState } from './MobjCombat.js';
 import {
@@ -11,7 +10,7 @@ import {
   enemyMove,
   newChaseDir,
 } from './EnemyMove.js';
-import { lookForPlayer, checkSight, approxDistance } from './Sight.js';
+import { lookForPlayer, checkSight } from './Sight.js';
 import { pointToAngle2 } from '../../math/viewMath.js';
 import { createTrigTables } from '../../math/tables.js';
 
@@ -47,23 +46,23 @@ function enterState(actor, stateName, ctx) {
 function aLook(actor, ctx) {
   actor.threshold = 0;
 
-  if (actor.target
-    && actor.target.health > 0
-    && (actor.target.flags & MF_SHOOTABLE)
-    && checkSight(actor, actor.target, ctx.collision)) {
-    enterState(actor, actor.monsterDef.seeState, ctx);
+  const soundTarg = actor.subsector?.sector?.soundtarget;
+  if (soundTarg && (soundTarg.flags & MF_SHOOTABLE)) {
+    actor.target = soundTarg;
+    if (!(actor.flags & MF_AMBUSH) || checkSight(actor, soundTarg, ctx.collision)) {
+      if (actor.monsterDef.seeState) {
+        enterState(actor, actor.monsterDef.seeState, ctx);
+      }
+      return;
+    }
+  }
+
+  if (!lookForPlayer(actor, ctx.player, ctx.collision, false)) {
     return;
   }
 
-  const mo = ctx.player.mo;
-  const dist = approxDistance(mo.x - actor.x, mo.y - actor.y);
-  const allaround = dist < MELEERANGE * 4;
-
-  if (lookForPlayer(actor, ctx.player, ctx.collision, allaround)) {
-    const arch = actor.monsterDef;
-    if (arch.seeState) {
-      enterState(actor, arch.seeState, ctx);
-    }
+  if (actor.monsterDef.seeState) {
+    enterState(actor, actor.monsterDef.seeState, ctx);
   }
 }
 
@@ -135,6 +134,7 @@ function aFaceTarget(actor) {
   if (!actor.target) {
     return;
   }
+  actor.flags &= ~MF_AMBUSH;
   actor.angle = pointToAngle2(
     actor.x,
     actor.y,

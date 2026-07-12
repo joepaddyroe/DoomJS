@@ -2,6 +2,7 @@ import { FRACUNIT } from '../../core/renderConstants.js';
 import { BT_ATTACK } from '../../core/inputButtons.js';
 import { createTrigTables } from '../../math/tables.js';
 import { FINEANGLES, FINEMASK } from '../../core/angles.js';
+import { noiseAlert } from '../monster/NoiseAlert.js';
 import {
   AM_CLIP,
   AM_NOAMMO,
@@ -47,10 +48,12 @@ export class Psprites {
   /**
    * @param {import('../Hitscan.js').Hitscan} hitscan
    * @param {import('../audio/SoundSystem.js').SoundSystem|null} [sound]
+   * @param {import('../Level.js').Level|null} [level]
    */
-  constructor(hitscan, sound = null) {
+  constructor(hitscan, sound = null, level = null) {
     this.hitscan = hitscan;
     this.sound = sound;
+    this.level = level;
     this.tables = createTrigTables();
   }
 
@@ -202,6 +205,9 @@ export class Psprites {
 
     const newstate = WEAPON_INFO[player.readyweapon].atkstate;
     this.setPsprite(player, PS_WEAPON, newstate);
+    if (this.level) {
+      noiseAlert(this.level, player.mo, player.mo);
+    }
   }
 
   /** @param {import('../Player.js').Player} player @param {Psprite} psp */

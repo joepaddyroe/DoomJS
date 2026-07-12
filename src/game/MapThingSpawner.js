@@ -4,6 +4,7 @@ import { DI_NODIR } from './monster/EnemyMove.js';
 import { monsterArchetypeForType } from './monster/monsterInfo.js';
 import { setMobjState } from './monster/MobjCombat.js';
 import { mobjDefForType } from './mobjInfo.js';
+import { MF_AMBUSH } from './mobjFlags.js';
 
 /**
  * @typedef {Object} MapThingMobj
@@ -40,6 +41,9 @@ import { mobjDefForType } from './mobjInfo.js';
  * @property {boolean} [stateEntered]
  * @property {string|null} [pendingState]
  */
+
+/** doomdef.h — mapthing options */
+const MTF_AMBUSH = 8;
 
 const MF_NOTSINGLE = 16;
 
@@ -135,6 +139,9 @@ export function spawnMapThing(level, thing) {
     mobj.health = monsterDef.spawnhealth;
     mobj.mass = monsterDef.mass;
     mobj.reactiontime = monsterDef.reactiontime;
+    if (thing.options & MTF_AMBUSH) {
+      mobj.flags |= MF_AMBUSH;
+    }
     setMobjState(mobj, monsterDef.spawnState);
   }
 

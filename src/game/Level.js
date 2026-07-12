@@ -35,6 +35,10 @@ export class Level {
       tag: sector.tag,
       /** @type {object|null} */
       specialdata: null,
+      /** @type {import('../Mobj.js').Mobj|null} */
+      soundtarget: null,
+      soundtraversed: 0,
+      soundSequence: 0,
       /** @type {import('./Level.js').LevelLine[]} */
       lines: [],
     }));
