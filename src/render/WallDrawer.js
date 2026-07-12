@@ -587,7 +587,8 @@ export class WallDrawer {
 
   /** Draw all deferred masked mid-textures after sprites (r_things.c — R_DrawMasked). */
   renderAllMaskedSegs() {
-    for (let i = 0; i < this.ctx.drawSegCount; i++) {
+    // Back-to-front (far segs first) so nearer masked fences draw over farther ones.
+    for (let i = this.ctx.drawSegCount - 1; i >= 0; i--) {
       const ds = this.ctx.drawSegs[i];
       if (ds.maskedtexturecol) {
         this.renderMaskedSegRange(ds, ds.x1, ds.x2);
