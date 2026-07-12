@@ -15,10 +15,13 @@ import { SpritePatches, PspriteRenderer } from './wad/SpritePatches.js';
 import { BillboardRenderer } from './render/BillboardRenderer.js';
 import { StatusBar } from './render/StatusBar.js';
 import { createTrigTables } from './math/tables.js';
+import { SoundSystem } from './audio/SoundSystem.js';
+import { createSoundDriver, soundDriverFromQuery } from './platform/sound/createSoundDriver.js';
 
 const WAD_PATHS = ['./doom.wad', './assets/doom.wad', '../doom.wad'];
 const MAP_NAME = 'E1M1';
-const BUILD_TAG = '2026-07-12-weapons5';
+const BUILD_TAG = '2026-07-12-sound1';
+const SOUND_DRIVER = soundDriverFromQuery();
 
 const canvas = document.getElementById('screen');
 const output = new CanvasVideoOutput(canvas, undefined, undefined, DEFAULT_PIXEL_SCALE);
@@ -40,6 +43,8 @@ let pspriteRenderer = null;
 let billboardRenderer = null;
 /** @type {StatusBar|null} */
 let statusBar = null;
+/** @type {SoundSystem|null} */
+let soundSystem = null;
 const trigTables = createTrigTables();
 
 async function loadWad() {
@@ -72,16 +77,20 @@ async function start() {
     billboardRenderer = new BillboardRenderer(renderer, spritePatches, assets.colormaps);
     statusBar = new StatusBar(wad);
 
+    soundSystem = new SoundSystem(createSoundDriver(SOUND_DRIVER));
+    await soundSystem.load(wad);
+
     if (!playerStart) {
       throw new Error('No player start found on map');
     }
 
     const player = Player.fromStart(playerStart, level);
-    playSession = new PlaySession(level, player);
+    playSession = new PlaySession(level, player, soundSystem);
     input = new KeyboardInput();
 
     canvas.addEventListener('click', () => {
       input.setEnabled(true);
+      soundSystem?.unlock();
       canvas.focus();
     });
     canvas.setAttribute('tabindex', '0');
@@ -92,6 +101,7 @@ async function start() {
     const pos = player.mapPosition();
     console.log(
       `DoomJS ${BUILD_TAG} — ${MAP_NAME} at (${pos.x}, ${pos.y}). `
+      + `Sound: ${soundSystem?.driverId ?? 'none'} (?sound=webaudio|howler|null). `
       + `320×200 @ ${DEFAULT_PIXEL_SCALE}× scale. Click canvas, WASD + arrows, 1/2/3 weapons, Ctrl/Space fire.`,
     );
 

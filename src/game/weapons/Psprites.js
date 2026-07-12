@@ -46,9 +46,11 @@ export function createPsprite() {
 export class Psprites {
   /**
    * @param {import('../Hitscan.js').Hitscan} hitscan
+   * @param {import('../audio/SoundSystem.js').SoundSystem|null} [sound]
    */
-  constructor(hitscan) {
+  constructor(hitscan, sound = null) {
     this.hitscan = hitscan;
+    this.sound = sound;
     this.tables = createTrigTables();
   }
 
@@ -258,6 +260,7 @@ export class Psprites {
     this.setPsprite(player, PS_FLASH, info.flashstate);
     this.hitscan.bulletSlopeFor(player.mo);
     this.hitscan.gunShot(player.mo, !player.refire);
+    this.sound?.start('pistol');
   }
 
   /** @param {import('../Player.js').Player} player @param {Psprite} psp */
@@ -267,6 +270,7 @@ export class Psprites {
     this.setPsprite(player, PS_FLASH, info.flashstate);
     this.hitscan.bulletSlopeFor(player.mo);
     this.hitscan.fireShotgun(player.mo);
+    this.sound?.start('shotgn');
   }
 
   /** @param {import('../Player.js').Player} player @param {Psprite} psp */

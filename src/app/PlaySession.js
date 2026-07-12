@@ -12,14 +12,15 @@ export class PlaySession {
   /**
    * @param {import('../game/Level.js').Level} level
    * @param {import('../game/Player.js').Player} player
+   * @param {import('../audio/SoundSystem.js').SoundSystem|null} [sound]
    */
-  constructor(level, player) {
+  constructor(level, player, sound = null) {
     this.level = level;
     this.player = player;
     this.collision = new MapCollision(level);
     this.puffs = new PuffManager();
     this.hitscan = new Hitscan(this.collision, this.puffs);
-    this.psprites = new Psprites(this.hitscan);
+    this.psprites = new Psprites(this.hitscan, sound);
     this.psprites.setup(player);
   }
 
