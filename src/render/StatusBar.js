@@ -3,6 +3,21 @@ import { SCREENHEIGHT, SCREENWIDTH, SBARHEIGHT, VIEWHEIGHT } from '../core/rende
 import { NUM_AMMO } from '../game/weapons/weaponConstants.js';
 
 const ST_Y = SCREENHEIGHT - SBARHEIGHT;
+/** st_stuff.c / st_stuff.h */
+const ST_X = 0;
+const ST_WIDTH = SCREENWIDTH;
+
+/**
+ * First STBAR column to copy when the patch is wider than the screen.
+ * Vanilla assumes a 320px patch; widescreen WADs pad the strip (426→320 trims 53px/side).
+ * @param {number} patchWidth
+ */
+function statusBarSourceColumn(patchWidth) {
+  if (patchWidth <= ST_WIDTH) {
+    return 0;
+  }
+  return (patchWidth - ST_WIDTH) >> 1;
+}
 
 /** Right-side ammo counters (st_stuff.c). */
 const AMMO_POSITIONS = [
@@ -34,8 +49,8 @@ export class StatusBar {
    */
   draw(renderer, player) {
     const { header, data } = this.bar;
-    const barX = header.width > SCREENWIDTH ? -(SCREENWIDTH >> 1) : 0;
-    renderer.drawPatch(barX, ST_Y, header, data);
+    const srcCol = statusBarSourceColumn(header.width);
+    renderer.drawPatchSlice(ST_X, ST_Y, header, data, srcCol, ST_WIDTH);
 
     for (let ammoType = 0; ammoType < NUM_AMMO; ammoType++) {
       this.drawNumber(

@@ -36,25 +36,42 @@ export class PatchRenderer {
    * @param {Uint8Array} [colormap] Optional per-column colormap; defaults to identity
    */
   drawPatch(x, y, patch, patchData, colormap = null) {
+    this.drawPatchSlice(x, y, patch, patchData, 0, patch.width, colormap);
+  }
+
+  /**
+   * Draw a horizontal slice of a patch (st_stuff.c — V_CopyRect column window).
+   * @param {number} x Destination screen X
+   * @param {number} y Destination screen Y
+   * @param {PatchHeader} patch
+   * @param {Uint8Array} patchData
+   * @param {number} srcCol First patch column to draw
+   * @param {number} width Number of patch columns to draw
+   * @param {Uint8Array|null} [colormap]
+   */
+  drawPatchSlice(x, y, patch, patchData, srcCol, width, colormap = null) {
     const screenWidth = this.buffer.screenWidth;
     const pixels = this.buffer.pixels;
 
     y -= patch.topOffset;
     x -= patch.leftOffset;
 
-    if (x + patch.width <= 0 || x >= screenWidth || y + patch.height <= 0) {
+    const firstCol = Math.max(0, srcCol);
+    const lastCol = Math.min(patch.width, srcCol + width);
+
+    if (x + (lastCol - firstCol) <= 0 || x >= screenWidth || y + patch.height <= 0) {
       return;
     }
 
-    let destTop = y * screenWidth + x;
-
-    for (let col = 0; col < patch.width; col++, x++, destTop++) {
-      if (x < 0 || x >= screenWidth) {
+    for (let col = firstCol; col < lastCol; col++) {
+      const destX = x + (col - srcCol);
+      if (destX < 0 || destX >= screenWidth) {
         continue;
       }
 
       let columnOffset = patch.columnOffsets[col];
       let topDelta = patchData[columnOffset];
+      let destTop = y * screenWidth + destX;
 
       while (topDelta !== 0xff) {
         const length = patchData[columnOffset + 1];
@@ -63,7 +80,7 @@ export class PatchRenderer {
         let count = length;
 
         while (count--) {
-          const screenY = (dest - (y * screenWidth + x)) / screenWidth + y;
+          const screenY = (dest - destTop) / screenWidth + y;
           if (screenY >= 0 && screenY < this.buffer.screenHeight) {
             const color = patchData[sourceIndex++];
             pixels[dest] = colormap ? colormap[color] : color;

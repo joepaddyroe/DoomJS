@@ -191,6 +191,19 @@ export class SoftwareRenderer {
    * @param {number} y
    * @param {import('./PatchRenderer.js').PatchHeader} patch
    * @param {Uint8Array} patchData
+   * @param {number} srcCol
+   * @param {number} width
+   * @param {Uint8Array|null} [colormap]
+   */
+  drawPatchSlice(x, y, patch, patchData, srcCol, width, colormap = null) {
+    this.patches.drawPatchSlice(x, y, patch, patchData, srcCol, width, colormap);
+  }
+
+  /**
+   * @param {number} x
+   * @param {number} y
+   * @param {import('./PatchRenderer.js').PatchHeader} patch
+   * @param {Uint8Array} patchData
    * @param {Uint8Array|null} colormap
    * @param {number} scale
    */
