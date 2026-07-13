@@ -1,4 +1,4 @@
-import { MenuPatches } from '../ui/WadUiPatches.js';
+import { MenuPatches, drawFullScreenPatch } from '../ui/WadUiPatches.js';
 
 /** @typedef {1 | 2 | 3 | 4} GameSkill */
 
@@ -57,7 +57,7 @@ export class SkillMenuScene {
    * @param {import('../render/SoftwareRenderer.js').SoftwareRenderer} renderer
    */
   draw(renderer) {
-    renderer.clear(0x70);
+    drawFullScreenPatch(renderer, this.patches.titlePic);
 
     const { newGame, chooseSkill, skills, skulls } = this.patches;
     renderer.drawPatch(96, 14, newGame.header, newGame.data);

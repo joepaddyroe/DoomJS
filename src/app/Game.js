@@ -50,7 +50,8 @@ export class Game {
     this.skillMenu = new SkillMenuScene(this.wad);
     /** @type {LevelIntroScene|null} */
     this.levelIntro = null;
-    this.gameOver = new GameOverScene();
+    /** @type {GameOverScene|null} */
+    this.gameOver = null;
 
     /** @type {import('../game/MapLoader.js').DoomMap|null} */
     this.map = null;
@@ -90,7 +91,7 @@ export class Game {
             }
           } else if (tickPlayerDeath(player)) {
             this.phase = 'gameOver';
-            this.gameOver = new GameOverScene();
+            this.gameOver = new GameOverScene(this.wad, this.renderer.pixels.slice());
           } else {
             this.statusBar.tick(player);
           }
@@ -98,7 +99,7 @@ export class Game {
         break;
 
       case 'gameOver':
-        if (this.gameOver.tick(input)) {
+        if (this.gameOver?.tick(input)) {
           this.beginPlay();
         }
         break;
@@ -126,7 +127,7 @@ export class Game {
         break;
 
       case 'gameOver':
-        this.gameOver.draw(this.renderer);
+        this.gameOver?.draw(this.renderer);
         break;
 
       default:
