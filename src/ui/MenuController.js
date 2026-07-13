@@ -96,6 +96,9 @@ export class MenuController {
     /** @type {string[]} */
     this.savegameStrings = Array.from({ length: 6 }, () => 'empty slot');
 
+    /** @type {{ listSlotNames?: () => string[], saveSlot?: (slot: number) => void, loadSlot?: (slot: number) => void }|null} */
+    this.saveSystem = null;
+
     /** @type {{ text: string, needsInput: boolean, onResponse?: (accepted: boolean) => void }|null} */
     this.message = null;
     /** @type {MenuAction} */
@@ -123,12 +126,28 @@ export class MenuController {
     this.itemOn = this.lastOn.main;
     this.message = null;
     this.applySfxVolume();
+
+    // Refresh slot labels on open so the menu reflects latest saves.
+    this.refreshSaveStrings();
   }
 
   close() {
     this.active = false;
     this.message = null;
     this.lastOn[this.currentMenu] = this.itemOn;
+  }
+
+  /** @param {{ listSlotNames?: () => string[], saveSlot?: (slot: number) => void, loadSlot?: (slot: number) => void }|null} sys */
+  setSaveSystem(sys) {
+    this.saveSystem = sys;
+    this.refreshSaveStrings();
+  }
+
+  refreshSaveStrings() {
+    const names = this.saveSystem?.listSlotNames?.();
+    if (names && names.length >= this.savegameStrings.length) {
+      this.savegameStrings = names.slice(0, this.savegameStrings.length);
+    }
   }
 
   /** @returns {MenuAction} */
@@ -272,14 +291,12 @@ export class MenuController {
       return false;
     }
 
+    // Vanilla (m_menu.c):
+    // - Escape closes the entire menu (M_ClearMenus + sfx_swtchx)
+    // - Backspace goes back one menu level (sfx_swtchn)
     if (input.consumeJustPressed('Escape')) {
-      if (this.parentMenu(this.currentMenu)) {
-        this.sound?.start('swtchn');
-        this.popMenu();
-      } else {
-        this.sound?.start('swtchx');
-        this.close();
-      }
+      this.sound?.start('swtchx');
+      this.close();
       return true;
     }
 
@@ -673,16 +690,29 @@ export class MenuController {
 
   /** @param {number} index */
   activateLoadSlot(index) {
-    if (this.savegameStrings[index] === 'empty slot') {
+    this.refreshSaveStrings();
+    if (!this.saveSystem?.loadSlot) {
       this.startMessage('save/load is not implemented yet.\n\npress a key.');
       return;
     }
-    this.startMessage('save/load is not implemented yet.\n\npress a key.');
+    if (this.savegameStrings[index] === 'empty slot') {
+      this.sound?.start('oof');
+      return;
+    }
+    this.sound?.start('pistol');
+    this.saveSystem.loadSlot(index);
   }
 
   /** @param {number} index */
   activateSaveSlot(index) {
-    this.startMessage('save/load is not implemented yet.\n\npress a key.');
+    this.refreshSaveStrings();
+    if (!this.saveSystem?.saveSlot) {
+      this.startMessage('save/load is not implemented yet.\n\npress a key.');
+      return;
+    }
+    this.sound?.start('pistol');
+    this.saveSystem.saveSlot(index);
+    this.refreshSaveStrings();
   }
 
   confirmQuit() {

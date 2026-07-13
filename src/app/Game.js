@@ -13,6 +13,9 @@ import { createTrigTables } from '../math/tables.js';
 import { nextMapName } from '../game/MapNames.js';
 import { MenuController } from '../ui/MenuController.js';
 import { WipeMelt } from '../ui/WipeMelt.js';
+import { SaveGameStore } from './SaveGameStore.js';
+import { spawnMapThing } from '../game/MapThingSpawner.js';
+import { FRACUNIT } from '../core/renderConstants.js';
 
 /** @typedef {'title' | 'levelIntro' | 'intermission' | 'playing' | 'wipe'} GamePhase */
 
@@ -51,6 +54,12 @@ export class Game {
     this.skill = 3;
 
     this.menu = new MenuController(this.wad, this.sound);
+    this.saveStore = new SaveGameStore();
+    this.menu.setSaveSystem({
+      listSlotNames: () => this.saveStore.listSlotNames(),
+      saveSlot: (slot) => this.saveToSlot(slot),
+      loadSlot: (slot) => this.loadFromSlot(slot),
+    });
     this.titleScene = new TitleScene(this.wad, this.menu);
     /** @type {LevelIntroScene|null} */
     this.levelIntro = null;
@@ -66,6 +75,192 @@ export class Game {
     this.bspRenderer = null;
     /** @type {PlaySession|null} */
     this.playSession = null;
+  }
+
+  saveToSlot(slot) {
+    if (this.phase !== 'playing' || !this.playSession) {
+      this.sound?.start('oof');
+      return;
+    }
+
+    const payload = this.serializeSave();
+    const name = `${payload.mapName} ${formatTime((payload.player.leveltime / 35) | 0)}`;
+    this.saveStore.save(slot, name, payload);
+    this.sound?.start('itemup');
+  }
+
+  loadFromSlot(slot) {
+    const payload = this.saveStore.load(slot);
+    if (!payload) {
+      this.sound?.start('oof');
+      return;
+    }
+    try {
+      this.deserializeSave(payload);
+      this.sound?.start('itemup');
+    } catch (e) {
+      console.error(e);
+      this.sound?.start('oof');
+    }
+  }
+
+  serializeSave() {
+    const ps = this.playSession;
+    const player = ps.player;
+    const mo = player.mo;
+
+    return {
+      version: 1,
+      mapName: this.mapName,
+      skill: this.skill,
+      player: {
+        x: mo.x,
+        y: mo.y,
+        z: mo.z,
+        angle: mo.angle,
+        health: player.health,
+        armorpoints: player.armorpoints,
+        armortype: player.armortype,
+        backpack: player.backpack,
+        ammo: [...player.ammo],
+        maxammo: [...player.maxammo],
+        weaponowned: [...player.weaponowned],
+        readyweapon: player.readyweapon,
+        pendingweapon: player.pendingweapon,
+        cards: [...player.cards],
+        leveltime: player.leveltime,
+      },
+      things: ps.things.map((t) => ({
+        mapType: t.mapType ?? null,
+        x: t.x,
+        y: t.y,
+        z: t.z,
+        angle: t.angle,
+        momx: t.momx,
+        momy: t.momy,
+        health: t.health,
+        removed: t.removed,
+        flags: t.flags,
+        radius: t.radius,
+        height: t.height,
+        sprite: t.sprite,
+        frame: t.frame,
+        monsterType: t.monsterType,
+        state: t.state,
+        stateTics: t.stateTics,
+      })),
+      stats: {
+        kills: ps.kills,
+        items: ps.items,
+        secrets: ps.secrets,
+        foundSecretSectors: [...ps.foundSecretSectors],
+      },
+    };
+  }
+
+  deserializeSave(payload) {
+    this.skill = payload.skill ?? 3;
+    this.mapName = payload.mapName ?? 'E1M1';
+
+    // Rebuild map + runtime level.
+    this.map = MapLoader.load(this.wad, this.mapName);
+    const level = Level.fromMap(this.map, this.textures, this.map.blockmap);
+    const playerStart = MapLoader.findPlayerStart(this.map);
+    if (!playerStart) {
+      throw new Error('No player start found on map');
+    }
+
+    // Ensure gameplay view size for RenderContext.
+    this.renderer.initBuffer(SCREENWIDTH, VIEWHEIGHT);
+
+    const player = Player.fromStart(playerStart, level);
+    this.bspRenderer = new BspRenderer(level, this.textures, this.renderer, this.assets.colormaps);
+    this.playSession = new PlaySession(level, player, this.sound, this.skill, {
+      textures: this.textures,
+      onExitLevel: (secret) => this.completeLevel(secret),
+    });
+
+    // Apply player snapshot.
+    const p = payload.player ?? {};
+    Object.assign(player, {
+      health: p.health ?? player.health,
+      armorpoints: p.armorpoints ?? player.armorpoints,
+      armortype: p.armortype ?? player.armortype,
+      backpack: p.backpack ?? player.backpack,
+      readyweapon: p.readyweapon ?? player.readyweapon,
+      pendingweapon: p.pendingweapon ?? player.pendingweapon,
+      leveltime: p.leveltime ?? player.leveltime,
+    });
+    if (Array.isArray(p.ammo)) player.ammo = [...p.ammo];
+    if (Array.isArray(p.maxammo)) player.maxammo = [...p.maxammo];
+    if (Array.isArray(p.weaponowned)) player.weaponowned = [...p.weaponowned];
+    if (Array.isArray(p.cards)) player.cards = [...p.cards];
+
+    player.mo.x = p.x ?? player.mo.x;
+    player.mo.y = p.y ?? player.mo.y;
+    player.mo.angle = p.angle ?? player.mo.angle;
+    player.mo.subsector = level.findSubsector(player.mo.x, player.mo.y);
+    player.mo.floorz = player.mo.subsector?.sector?.floorHeight ?? player.mo.floorz;
+    player.mo.ceilingz = player.mo.subsector?.sector?.ceilingHeight ?? player.mo.ceilingz;
+    // Snap to floor to avoid embedding in geometry when loading (p_mobj.c / P_ZMovement).
+    player.mo.z = player.mo.floorz;
+    player.viewz = player.mo.z + player.viewheight;
+
+    // Apply thing snapshots by index (Phase 1 assumption: spawn order matches).
+    if (Array.isArray(payload.things)) {
+      const baseCount = this.playSession.things.length;
+      const applyThing = (dst, src) => {
+        Object.assign(dst, src);
+        dst.subsector = level.findSubsector(dst.x, dst.y);
+        dst.floorz = dst.subsector?.sector?.floorHeight ?? dst.floorz;
+        dst.ceilingz = dst.subsector?.sector?.ceilingHeight ?? dst.ceilingz;
+        if (typeof dst.z === 'number') {
+          if (dst.z < dst.floorz) dst.z = dst.floorz;
+          if (dst.z + dst.height > dst.ceilingz) dst.z = dst.ceilingz - dst.height;
+        }
+      };
+
+      // Apply to existing spawned things (map things).
+      const count = Math.min(baseCount, payload.things.length);
+      for (let i = 0; i < count; i++) {
+        applyThing(this.playSession.things[i], payload.things[i]);
+      }
+
+      // If the save contains additional things (e.g. dropped pickups), recreate them.
+      for (let i = baseCount; i < payload.things.length; i++) {
+        const src = payload.things[i];
+        const mapType = src?.mapType;
+        if (typeof mapType !== 'number') {
+          continue;
+        }
+        // Spawn a matching thing and then apply the saved runtime fields.
+        const spawned = spawnMapThing(level, {
+          x: src.x / FRACUNIT,
+          y: src.y / FRACUNIT,
+          angle: 0,
+          type: mapType,
+          options: 0,
+        });
+        if (spawned) {
+          applyThing(spawned, src);
+          this.playSession.things.push(spawned);
+        }
+      }
+    }
+
+    // Restore counters (so intermission stats stay consistent after load).
+    const st = payload.stats ?? {};
+    this.playSession.kills = st.kills ?? this.playSession.kills;
+    this.playSession.items = st.items ?? this.playSession.items;
+    this.playSession.secrets = st.secrets ?? this.playSession.secrets;
+    if (Array.isArray(st.foundSecretSectors)) {
+      this.playSession.foundSecretSectors = new Set(st.foundSecretSectors);
+    }
+
+    this.statusBar.resetForPlayer(player);
+    this.menu.setUsergame(true);
+    this.phase = 'playing';
+    this.menu.close();
   }
 
   /** @param {import('../platform/input/KeyboardInput.js').KeyboardInput} input */
@@ -85,6 +280,7 @@ export class Game {
 
       case 'levelIntro':
         this.menu.tick(input);
+        this.handleMenuAction(this.menu.consumeAction());
         if (!this.menu.active && this.levelIntro?.tick(input)) {
           // Build the play session first so the wipe target is the actual 3D view.
           this.beginPlay();
@@ -94,6 +290,7 @@ export class Game {
 
       case 'intermission':
         this.menu.tick(input);
+        this.handleMenuAction(this.menu.consumeAction());
         if (!this.menu.active && this.intermission?.tick(input)) {
           this.intermission = null;
           this.beginLevelIntro();
@@ -106,6 +303,7 @@ export class Game {
 
       case 'playing':
         this.menu.tick(input);
+        this.handleMenuAction(this.menu.consumeAction());
         if (this.menu.active) {
           break;
         }
@@ -151,6 +349,15 @@ export class Game {
     }
 
     if (action.type === 'startGame') {
+      // Fresh new game requested from any state.
+      this.wipe = null;
+      this.intermission = null;
+      this.levelIntro = null;
+      this.playSession = null;
+      this.bspRenderer = null;
+      this.map = null;
+      this.menu.setUsergame(false);
+
       this.skill = action.skill;
       this.mapName = action.mapName;
       this.beginLevelIntro();
@@ -330,4 +537,10 @@ export class Game {
       this.intermission?.draw(this.renderer);
     });
   }
+}
+
+function formatTime(totalSec) {
+  const m = (totalSec / 60) | 0;
+  const s = totalSec % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
 }
