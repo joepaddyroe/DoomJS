@@ -34,6 +34,7 @@ export class Game {
    * @param {import('../wad/SpritePatches.js').PspriteRenderer} deps.pspriteRenderer
    * @param {import('../render/StatusBar.js').StatusBar} deps.statusBar
    * @param {import('../audio/SoundSystem.js').SoundSystem|null} deps.sound
+   * @param {import('../audio/MusicSystem.js').MusicSystem|null} [deps.music]
    * @param {string} [deps.mapName='E1M1']
    */
   constructor(deps) {
@@ -46,6 +47,7 @@ export class Game {
     this.pspriteRenderer = deps.pspriteRenderer;
     this.statusBar = deps.statusBar;
     this.sound = deps.sound;
+    this.music = deps.music ?? null;
     this.mapName = deps.mapName ?? 'E1M1';
     this.trigTables = createTrigTables();
 
@@ -53,7 +55,7 @@ export class Game {
     this.phase = 'title';
     this.skill = 3;
 
-    this.menu = new MenuController(this.wad, this.sound);
+    this.menu = new MenuController(this.wad, this.sound, this.music);
     this.saveStore = new SaveGameStore();
     this.menu.setSaveSystem({
       listSlotNames: () => this.saveStore.listSlotNames(),
@@ -75,6 +77,9 @@ export class Game {
     this.bspRenderer = null;
     /** @type {PlaySession|null} */
     this.playSession = null;
+
+    // Start title music (will begin after unlock).
+    this.music?.startMenuMusic();
   }
 
   saveToSlot(slot) {
@@ -468,6 +473,7 @@ export class Game {
     this.map = MapLoader.load(this.wad, this.mapName);
     this.levelIntro = new LevelIntroScene(this.wad, this.mapName);
     this.phase = 'levelIntro';
+    this.music?.startLevelMusic(this.mapName);
   }
 
   beginPlay() {
@@ -494,6 +500,7 @@ export class Game {
     this.statusBar.resetForPlayer(player);
     this.menu.setUsergame(true);
     this.menu.applySfxVolume();
+    this.menu.applyMusicVolume();
     this.phase = 'playing';
   }
 
@@ -506,6 +513,7 @@ export class Game {
     this.levelIntro = null;
     this.menu.setUsergame(false);
     this.menu.close();
+    this.music?.startMenuMusic();
   }
 
   /**
@@ -519,6 +527,8 @@ export class Game {
       this.returnToTitle();
       return;
     }
+
+    this.music?.startIntermissionMusic();
 
     this.mapName = next;
     this.map = null;

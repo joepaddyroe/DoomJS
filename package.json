@@ -1,0 +1,24 @@
+{
+  "name": "doomjs",
+  "version": "1.0.0",
+  "description": "Browser-based port of the original Doom software renderer and game logic, written in JavaScript (ES modules).",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/joepaddyroe/DoomJS.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/joepaddyroe/DoomJS/issues"
+  },
+  "homepage": "https://github.com/joepaddyroe/DoomJS#readme",
+  "dependencies": {
+    "opl3": "^0.4.3"
+  }
+}

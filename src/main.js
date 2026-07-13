@@ -11,6 +11,7 @@ import { SpritePatches, PspriteRenderer } from './wad/SpritePatches.js';
 import { BillboardRenderer } from './render/BillboardRenderer.js';
 import { StatusBar } from './render/StatusBar.js';
 import { SoundSystem } from './audio/SoundSystem.js';
+import { MusicSystem } from './audio/MusicSystem.js';
 import { createSoundDriver, soundDriverFromQuery } from './platform/sound/createSoundDriver.js';
 
 const WAD_PATHS = ['./doom.wad', './assets/doom.wad', '../doom.wad'];
@@ -29,6 +30,8 @@ let input = null;
 let gameLoop = null;
 /** @type {SoundSystem|null} */
 let soundSystem = null;
+/** @type {MusicSystem|null} */
+let musicSystem = null;
 
 async function loadWad() {
   let lastError = null;
@@ -59,6 +62,7 @@ async function start() {
 
     soundSystem = new SoundSystem(createSoundDriver(SOUND_DRIVER));
     soundSystem.load(wad);
+    musicSystem = new MusicSystem(wad);
 
     game = new Game({
       wad,
@@ -70,6 +74,7 @@ async function start() {
       pspriteRenderer,
       statusBar,
       sound: soundSystem,
+      music: musicSystem,
       mapName: 'E1M1',
     });
 
@@ -79,6 +84,7 @@ async function start() {
     canvas.addEventListener('click', () => {
       input.setEnabled(true);
       void soundSystem?.unlock();
+      void musicSystem?.unlock();
       canvas.focus();
     });
     canvas.setAttribute('tabindex', '0');

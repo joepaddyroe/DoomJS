@@ -57,10 +57,12 @@ export class MenuController {
   /**
    * @param {import('../wad/WadFile.js').WadFile} wad
    * @param {import('../audio/SoundSystem.js').SoundSystem|null} [sound]
+   * @param {import('../audio/MusicSystem.js').MusicSystem|null} [music]
    */
-  constructor(wad, sound = null) {
+  constructor(wad, sound = null, music = null) {
     this.patches = new MenuPatches(wad);
     this.sound = sound;
+    this.music = music;
     this.gamemode = detectGamemode(wad);
     this.usergame = false;
 
@@ -117,6 +119,13 @@ export class MenuController {
     }
   }
 
+  /** Apply current music volume to the music system. */
+  applyMusicVolume() {
+    if (this.music) {
+      this.music.setMusicVolume(this.musicVolume / 15);
+    }
+  }
+
   open() {
     if (this.active) {
       return;
@@ -126,6 +135,7 @@ export class MenuController {
     this.itemOn = this.lastOn.main;
     this.message = null;
     this.applySfxVolume();
+    this.applyMusicVolume();
 
     // Refresh slot labels on open so the menu reflects latest saves.
     this.refreshSaveStrings();
@@ -402,6 +412,7 @@ export class MenuController {
         break;
       case 'musicVolume':
         this.musicVolume = clamp(this.musicVolume, 15);
+        this.applyMusicVolume();
         break;
       default:
         break;
