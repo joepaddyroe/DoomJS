@@ -104,7 +104,7 @@ export function useSpecialLine(thing, line, side, ctx) {
       return true;
 
     case 101:
-      if (evDoFloor(ctx, line, FloorMoveType.raiseToHighest)) {
+      if (evDoFloor(ctx, line, FloorMoveType.raiseFloor)) {
         changeSwitchTexture(line, ctx, false);
       }
       return true;

@@ -9,9 +9,8 @@ import { evDoFloor, FloorMoveType } from './FloorMovers.js';
  * @param {number} type
  */
 function crossDoor(ctx, line, type) {
-  if (evDoDoor(ctx, line, type)) {
-    line.special = 0;
-  }
+  evDoDoor(ctx, line, type);
+  line.special = 0;
 }
 
 /**
@@ -20,9 +19,8 @@ function crossDoor(ctx, line, type) {
  * @param {number} floorType
  */
 function crossFloor(ctx, line, floorType) {
-  if (evDoFloor(ctx, line, floorType)) {
-    line.special = 0;
-  }
+  evDoFloor(ctx, line, floorType);
+  line.special = 0;
 }
 
 /**

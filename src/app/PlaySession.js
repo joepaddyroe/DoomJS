@@ -45,6 +45,7 @@ export class PlaySession {
       switchPairs: options.textures ? buildSwitchPairs(options.textures) : new Map(),
       sound,
       onExitLevel: options.onExitLevel,
+      playerMo: player.mo,
     };
     this.collision.specCtx = this.specCtx;
   }

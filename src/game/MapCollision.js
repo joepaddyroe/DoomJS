@@ -290,12 +290,63 @@ export class MapCollision {
       this.tmdropoffz = opening.lowfloor;
     }
 
-    if (ld.special && this.tmthing.playerObject
-      && this.numspechit < MAXSPECIALCROSS) {
+    if (ld.special && this.numspechit < MAXSPECIALCROSS) {
       this.spechit[this.numspechit++] = ld;
     }
 
     return true;
+  }
+
+  /**
+   * Special lines whose sides were crossed between two points (p_map.c spechit
+   * supplement — spechit only collects lines straddled at the destination).
+   *
+   * @param {number} x1
+   * @param {number} y1
+   * @param {number} x2
+   * @param {number} y2
+   * @param {number} radius
+   * @returns {{ line: import('./Level.js').LevelLine, oldSide: number }[]}
+   */
+  findCrossedSpecialLines(x1, y1, x2, y2, radius) {
+    const blockmap = this.level.blockmap;
+    const minx = Math.min(x1, x2) - radius;
+    const maxx = Math.max(x1, x2) + radius;
+    const miny = Math.min(y1, y2) - radius;
+    const maxy = Math.max(y1, y2) + radius;
+
+    const xl = (minx - blockmap.orgX) >> MAPBLOCKSHIFT;
+    const xh = (maxx - blockmap.orgX) >> MAPBLOCKSHIFT;
+    const yl = (miny - blockmap.orgY) >> MAPBLOCKSHIFT;
+    const yh = (maxy - blockmap.orgY) >> MAPBLOCKSHIFT;
+
+    const seen = new Set();
+    /** @type {{ line: import('./Level.js').LevelLine, oldSide: number }[]} */
+    const crossed = [];
+
+    for (let bx = xl; bx <= xh; bx++) {
+      for (let by = yl; by <= yh; by++) {
+        for (const lineIndex of blockmap.lineIndicesForBlock(bx, by)) {
+          if (seen.has(lineIndex)) {
+            continue;
+          }
+          seen.add(lineIndex);
+
+          const line = this.level.lines[lineIndex];
+          if (!line.special) {
+            continue;
+          }
+
+          const oldSide = pointOnLineSide(x1, y1, line);
+          const newSide = pointOnLineSide(x2, y2, line);
+          if (oldSide !== newSide) {
+            crossed.push({ line, oldSide });
+          }
+        }
+      }
+    }
+
+    return crossed;
   }
 
   /**
@@ -344,14 +395,26 @@ export class MapCollision {
     thing.y = y;
     thing.subsector = this.level.findSubsector(x, y);
 
-    if (thing.playerObject && this.specCtx) {
-      for (let i = 0; i < this.numspechit; i++) {
+    if (!(thing.flags & (MF_TELEPORT | MF_NOCLIP))
+      && thing.playerObject && this.specCtx) {
+      const processed = new Set();
+
+      for (let i = this.numspechit - 1; i >= 0; i--) {
         const line = this.spechit[i];
         const oldSide = pointOnLineSide(oldx, oldy, line);
         const newSide = pointOnLineSide(x, y, line);
-        if (oldSide !== newSide) {
+        if (oldSide !== newSide && line.special) {
           crossSpecialLine(thing, line, oldSide, this.specCtx);
+          processed.add(line);
         }
+      }
+
+      for (const { line, oldSide } of this.findCrossedSpecialLines(
+        oldx, oldy, x, y, thing.radius)) {
+        if (processed.has(line)) {
+          continue;
+        }
+        crossSpecialLine(thing, line, oldSide, this.specCtx);
       }
     }
 

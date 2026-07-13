@@ -31,9 +31,22 @@ export const VLDoorType = {
  * @property {Map<number, number>} switchPairs
  * @property {import('../../audio/SoundSystem.js').SoundSystem|null} [sound]
  * @property {(secret?: boolean) => void} [onExitLevel]
+ * @property {import('../Mobj.js').Mobj|null} [playerMo]
  */
 
 /** @typedef {SpecContext} DoorContext */
+
+/**
+ * @param {DoorContext} ctx
+ * @param {LevelSector} sec
+ */
+function playerOccupiesSector(ctx, sec) {
+  const mo = ctx.playerMo;
+  if (!mo) {
+    return false;
+  }
+  return mo.subsector?.sector === sec;
+}
 
 export class VerticalDoorThinker {
   /**
@@ -69,6 +82,10 @@ export function tickVerticalDoor(door, ctx) {
 
   switch (door.direction) {
     case 0:
+      if (playerOccupiesSector(ctx, sec)) {
+        door.topcountdown = door.topwait;
+        break;
+      }
       if (--door.topcountdown <= 0) {
         if (door.type === VLDoorType.blazeRaise || door.type === VLDoorType.normal) {
           door.direction = -1;
@@ -89,6 +106,11 @@ export function tickVerticalDoor(door, ctx) {
       break;
 
     case -1: {
+      if (playerOccupiesSector(ctx, sec)) {
+        door.direction = 1;
+        playDoorSound(ctx.sound, 'doropn');
+        break;
+      }
       const res = movePlane(sec, door.speed, sec.floorHeight, 1, -1);
       if (res === 'pastdest') {
         if (door.type === VLDoorType.blazeRaise

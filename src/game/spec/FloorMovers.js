@@ -1,6 +1,12 @@
 import { FLOORSPEED } from '../../core/gameConstants.js';
+import { FRACUNIT } from '../../core/renderConstants.js';
 import { movePlane } from './PlaneMovement.js';
-import { findLowestFloorSurrounding, findHighestFloorSurrounding, findSectorFromLineTag } from './SectorQuery.js';
+import {
+  findLowestCeilingSurrounding,
+  findLowestFloorSurrounding,
+  findHighestFloorSurrounding,
+  findSectorFromLineTag,
+} from './SectorQuery.js';
 
 /** @typedef {import('./Doors.js').SpecContext} SpecContext */
 /** @typedef {import('../Level.js').LevelSector} LevelSector */
@@ -39,6 +45,8 @@ export const FloorMoveType = {
   lowerToLowest: 0,
   lowerToHighest: 1,
   raiseToHighest: 2,
+  /** p_floor.c — raiseFloor */
+  raiseFloor: 3,
 };
 
 /**
@@ -62,6 +70,14 @@ export function evDoFloor(ctx, line, type) {
       case FloorMoveType.lowerToHighest:
         dest = findHighestFloorSurrounding(sec);
         break;
+      case FloorMoveType.raiseFloor: {
+        dest = findLowestCeilingSurrounding(sec);
+        if (dest > sec.ceilingHeight) {
+          dest = sec.ceilingHeight;
+        }
+        dest -= 8 * FRACUNIT;
+        break;
+      }
       case FloorMoveType.raiseToHighest:
         dest = findHighestFloorSurrounding(sec);
         break;
@@ -76,6 +92,7 @@ export function evDoFloor(ctx, line, type) {
     }
 
     activated = true;
+
     const floor = new FloorMoveThinker(sec, dest, dest < sec.floorHeight ? -1 : 1, FLOORSPEED);
     floor.context = ctx;
     sec.specialdata = floor;
