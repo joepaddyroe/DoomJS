@@ -13,6 +13,13 @@ import {
 import { lookForPlayer, checkSight } from './Sight.js';
 import { pointToAngle2 } from '../../math/viewMath.js';
 import { createTrigTables } from '../../math/tables.js';
+import {
+  playActiveSound,
+  playDeathSound,
+  playPainSound,
+  playSeeSound,
+} from './MonsterSfx.js';
+import { radiusAttack } from './RadiusAttack.js';
 
 const tables = createTrigTables();
 
@@ -22,6 +29,8 @@ const tables = createTrigTables();
  * @property {import('../MapCollision.js').MapCollision} collision
  * @property {import('../Hitscan.js').Hitscan} hitscan
  * @property {import('./MissileManager.js').MissileManager} missiles
+ * @property {import('../MapThingSpawner.js').MapThingMobj[]} things
+ * @property {import('../../audio/SoundSystem.js').SoundSystem|null} [sound]
  */
 
 /**
@@ -51,6 +60,7 @@ function aLook(actor, ctx) {
   if (soundTarg && (soundTarg.flags & MF_SHOOTABLE)) {
     actor.target = soundTarg;
     if (!(actor.flags & MF_AMBUSH) || checkSight(actor, soundTarg, ctx.collision)) {
+      playSeeSound(actor.monsterDef.seeSound, ctx.sound);
       if (actor.monsterDef.seeState) {
         enterState(actor, actor.monsterDef.seeState, ctx);
       }
@@ -62,6 +72,7 @@ function aLook(actor, ctx) {
     return;
   }
 
+  playSeeSound(actor.monsterDef.seeSound, ctx.sound);
   if (actor.monsterDef.seeState) {
     enterState(actor, actor.monsterDef.seeState, ctx);
   }
@@ -126,6 +137,10 @@ function aChase(actor, ctx) {
   if (--actor.movecount < 0 || !enemyMove(actor, ctx.collision)) {
     newChaseDir(actor, ctx.collision);
   }
+
+  if (arch.activeSound && gameRandom() < 3) {
+    playActiveSound(arch.activeSound, ctx.sound);
+  }
 }
 
 /**
@@ -155,6 +170,7 @@ function aPosAttack(actor, ctx) {
   }
 
   aFaceTarget(actor);
+  ctx.sound?.start('pistol');
   let angle = actor.angle;
   const slope = ctx.collision.aimLineAttack(actor, angle, MISSILERANGE);
   angle = (angle + ((gameRandom() - gameRandom()) << 20)) >>> 0;
@@ -173,6 +189,7 @@ function aTroopAttack(actor, ctx) {
 
   aFaceTarget(actor);
   if (checkMeleeRange(actor, ctx.collision)) {
+    ctx.sound?.start(actor.monsterDef.attackSound ?? 'claw');
     const damage = (gameRandom() % 8 + 1) * 3;
     damageMobj(actor.target, actor, actor, damage, ctx.player);
     return;
@@ -186,15 +203,49 @@ function aFall(actor) {
   actor.flags &= ~MF_SOLID;
 }
 
+/**
+ * @param {import('../MapThingSpawner.js').MapThingMobj} actor
+ * @param {MonsterContext} ctx
+ */
+function aPain(actor, ctx) {
+  playPainSound(actor.monsterDef.painSound, ctx.sound);
+}
+
+/**
+ * @param {import('../MapThingSpawner.js').MapThingMobj} actor
+ * @param {MonsterContext} ctx
+ */
+function aScream(actor, ctx) {
+  playDeathSound(actor.monsterDef.deathSound, ctx.sound);
+}
+
+/**
+ * @param {import('../MapThingSpawner.js').MapThingMobj} actor
+ * @param {MonsterContext} ctx
+ */
+function aXScream(actor, ctx) {
+  ctx.sound?.start('slop');
+}
+
+/**
+ * @param {import('../MapThingSpawner.js').MapThingMobj} actor
+ * @param {MonsterContext} ctx
+ */
+function aExplode(actor, ctx) {
+  radiusAttack(actor, actor.target ?? null, 128, ctx.things, ctx.collision, ctx.player);
+}
+
 const ACTIONS = {
   A_Look: aLook,
   A_Chase: aChase,
   A_FaceTarget: aFaceTarget,
   A_PosAttack: aPosAttack,
   A_TroopAttack: aTroopAttack,
-  A_Pain: () => {},
-  A_Scream: () => {},
+  A_Pain: aPain,
+  A_Scream: aScream,
+  A_XScream: aXScream,
   A_Fall: aFall,
+  A_Explode: aExplode,
 };
 
 /**

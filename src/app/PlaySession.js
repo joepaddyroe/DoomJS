@@ -26,7 +26,7 @@ export class PlaySession {
     this.pickups = new ItemPickup(sound);
     this.collision = new MapCollision(level, this.things, this.pickups, player.mo);
     this.collision.damagePlayer = player;
-    this.missiles = new MissileManager(level, this.collision);
+    this.missiles = new MissileManager(level, this.collision, sound);
     this.puffs = new PuffManager();
     this.hitscan = new Hitscan(this.collision, this.puffs, player);
     this.psprites = new Psprites(this.hitscan, sound, level);
@@ -64,6 +64,8 @@ export class PlaySession {
       collision,
       hitscan: this.hitscan,
       missiles: this.missiles,
+      things: this.things,
+      sound: this.doorCtx.sound,
     });
     this.missiles.tick(player);
     this.puffs.tick();

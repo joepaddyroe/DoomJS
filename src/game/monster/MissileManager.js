@@ -44,10 +44,12 @@ export class MissileManager {
   /**
    * @param {import('../Level.js').Level} level
    * @param {import('../MapCollision.js').MapCollision} collision
+   * @param {import('../../audio/SoundSystem.js').SoundSystem|null} [sound]
    */
-  constructor(level, collision) {
+  constructor(level, collision, sound = null) {
     this.level = level;
     this.collision = collision;
+    this.sound = sound;
     /** @type {MissileMobj[]} */
     this.missiles = [];
     collision.missiles = this.missiles;
@@ -113,6 +115,10 @@ export class MissileManager {
     mo.z += mo.momz >> 1;
     mo.subsector = this.level.findSubsector(mo.x, mo.y);
 
+    if (def.spawnSound) {
+      this.sound?.start(def.spawnSound);
+    }
+
     if (!this.collision.tryMove(mo, mo.x, mo.y)) {
       this.explodeMissile(mo);
       if (mo.removed) {
@@ -144,6 +150,10 @@ export class MissileManager {
     mo.stateTics = death.tics - (gameRandom() & 3);
     if (mo.stateTics < 1) {
       mo.stateTics = 1;
+    }
+
+    if (def.deathSound) {
+      this.sound?.start(def.deathSound);
     }
   }
 

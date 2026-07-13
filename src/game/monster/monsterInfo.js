@@ -19,6 +19,11 @@ import { BARREL_STATES, POSS_STATES, TROO_STATES } from './monsterStates.js';
  * @property {number} painchance
  * @property {number} reactiontime
  * @property {number} flags
+ * @property {string|null} seeSound
+ * @property {string|null} painSound
+ * @property {string|null} deathSound
+ * @property {string|null} activeSound
+ * @property {string|null} attackSound
  */
 
 /** @type {Record<string, MonsterArchetype>} */
@@ -39,6 +44,11 @@ export const MONSTER_ARCHETYPES = {
     painchance: 200,
     reactiontime: 8,
     flags: MF_SOLID | MF_SHOOTABLE | MF_COUNTKILL,
+    seeSound: 'posit1',
+    painSound: 'popain',
+    deathSound: 'podth1',
+    activeSound: 'posact',
+    attackSound: null,
   },
   troop: {
     id: 'troop',
@@ -56,6 +66,11 @@ export const MONSTER_ARCHETYPES = {
     painchance: 200,
     reactiontime: 8,
     flags: MF_SOLID | MF_SHOOTABLE | MF_COUNTKILL,
+    seeSound: 'bgsit1',
+    painSound: 'popain',
+    deathSound: 'bgdth1',
+    activeSound: 'bgact',
+    attackSound: 'claw',
   },
   barrel: {
     id: 'barrel',
@@ -73,6 +88,11 @@ export const MONSTER_ARCHETYPES = {
     painchance: 0,
     reactiontime: 0,
     flags: MF_SOLID | MF_SHOOTABLE | MF_NOBLOOD,
+    seeSound: null,
+    painSound: null,
+    deathSound: 'barexp',
+    activeSound: null,
+    attackSound: null,
   },
 };
 
