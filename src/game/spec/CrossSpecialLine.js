@@ -1,5 +1,6 @@
 import { evDoDoor, VLDoorType } from './Doors.js';
 import { evDoFloor, FloorMoveType } from './FloorMovers.js';
+import { evDoPlat, PlatType } from './Plats.js';
 
 /** @typedef {import('./Doors.js').SpecContext} SpecContext */
 
@@ -21,6 +22,13 @@ function crossDoor(ctx, line, type) {
 function crossFloor(ctx, line, floorType) {
   evDoFloor(ctx, line, floorType);
   line.special = 0;
+}
+
+function crossPlat(ctx, line, type, clearSpecial = true) {
+  evDoPlat(ctx, line, type);
+  if (clearSpecial) {
+    line.special = 0;
+  }
 }
 
 /**
@@ -58,6 +66,18 @@ export function crossSpecialLine(thing, line, _oldSide, ctx) {
     case 38:
     case 82:
       crossFloor(ctx, line, FloorMoveType.lowerToLowest);
+      break;
+
+    case 10:
+      crossPlat(ctx, line, PlatType.downWaitUpStay);
+      break;
+
+    case 22:
+      crossPlat(ctx, line, PlatType.raiseToNearestAndChange);
+      break;
+
+    case 88:
+      crossPlat(ctx, line, PlatType.downWaitUpStay, false);
       break;
 
     case 52:

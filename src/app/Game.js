@@ -16,6 +16,8 @@ import { WipeMelt } from '../ui/WipeMelt.js';
 import { SaveGameStore } from './SaveGameStore.js';
 import { spawnMapThing } from '../game/MapThingSpawner.js';
 import { FRACUNIT } from '../core/renderConstants.js';
+import { statusPaletteIndex } from '../render/StatusPalette.js';
+import { SFX_VOLUME } from '../audio/SfxRegistry.js';
 
 /** @typedef {'title' | 'levelIntro' | 'intermission' | 'playing' | 'wipe'} GamePhase */
 
@@ -318,7 +320,11 @@ export class Game {
           player.attacking = (cmd.buttons & BT_ATTACK) !== 0;
 
           if (!player.dead) {
+            const damageBefore = player.damagecount;
             this.playSession.tick(cmd);
+            if (player.damagecount > damageBefore) {
+              this.sound?.start('plpain', { volume: SFX_VOLUME.plpain });
+            }
             this.statusBar.tick(player);
             if (player.health <= 0) {
               startPlayerDeath(player, this.playSession.psprites, this.sound);
@@ -372,6 +378,14 @@ export class Game {
     if (action.type === 'returnTitle') {
       this.returnToTitle();
     }
+  }
+
+  /** @returns {Uint8ClampedArray} PLAYPAL entry for the current frame. */
+  getFramePalette() {
+    if (this.phase === 'playing' && this.playSession) {
+      return this.assets.getPalette(statusPaletteIndex(this.playSession.player));
+    }
+    return this.assets.palette;
   }
 
   /** @param {import('../platform/input/KeyboardInput.js').KeyboardInput} input */

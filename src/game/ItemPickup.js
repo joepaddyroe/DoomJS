@@ -6,6 +6,7 @@ import {
   CARD_YELLOW,
   CARD_YELLOW_SKULL,
 } from './PlayerCards.js';
+import { giveIronFeet } from './PlayerPowers.js';
 import { FRACUNIT } from '../core/renderConstants.js';
 import {
   AM_CELL,
@@ -139,10 +140,11 @@ export class ItemPickup {
       case 'invuln':
       case 'berserk':
       case 'invis':
-      case 'suit':
       case 'automap':
       case 'liteamp':
         return true;
+      case 'suit':
+        return giveIronFeet(player);
       default:
         return false;
     }

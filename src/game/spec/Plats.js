@@ -1,5 +1,5 @@
 import { FRACUNIT } from '../../core/renderConstants.js';
-import { PLATSPEED } from '../../core/gameConstants.js';
+import { PLATSPEED, PLATWAIT } from '../../core/gameConstants.js';
 import { movePlane } from './PlaneMovement.js';
 import { findSectorFromLineTag } from './SectorQuery.js';
 
@@ -10,20 +10,24 @@ import { findSectorFromLineTag } from './SectorQuery.js';
 export const PlatType = {
   raiseAndChange: 0,
   raiseToNearestAndChange: 1,
+  downWaitUpStay: 2,
 };
 
 export class PlatThinker {
   /**
    * @param {LevelSector} sector
    * @param {number} type PlatType
-   * @param {number} height Target height
+   * @param {number} high
+   * @param {number} [low]
    */
-  constructor(sector, type, height) {
+  constructor(sector, type, high, low = high) {
     this.sector = sector;
     this.type = type;
-    this.height = height;
+    this.high = high;
+    this.low = low;
     this.speed = PLATSPEED;
     this.direction = 1;
+    this.wait = 0;
     /** @type {SpecContext|null} */
     this.context = null;
   }
@@ -33,12 +37,62 @@ export class PlatThinker {
       return;
     }
 
-    const res = movePlane(this.sector, this.speed, this.height, 0, this.direction);
+    if (this.type === PlatType.downWaitUpStay) {
+      if (this.wait > 0) {
+        this.wait--;
+        return;
+      }
+
+      const target = this.direction > 0 ? this.high : this.low;
+      const res = movePlane(this.sector, this.speed, target, 0, this.direction);
+      if (res === 'pastdest') {
+        if (this.direction < 0) {
+          this.direction = 1;
+          this.wait = PLATWAIT;
+        } else {
+          this.sector.specialdata = null;
+          this.context.thinkers.remove(this);
+        }
+      }
+      return;
+    }
+
+    const res = movePlane(this.sector, this.speed, this.high, 0, this.direction);
     if (res === 'pastdest') {
       this.sector.specialdata = null;
       this.context.thinkers.remove(this);
     }
   }
+}
+
+/**
+ * @param {LevelSector} sec
+ * @returns {number}
+ */
+function lowestNeighborFloor(sec) {
+  let low = sec.floorHeight;
+  for (const line of sec.lines) {
+    const other = line.frontSector === sec ? line.backSector : line.frontSector;
+    if (other && other.floorHeight < low) {
+      low = other.floorHeight;
+    }
+  }
+  return low;
+}
+
+/**
+ * @param {LevelSector} sec
+ * @returns {number}
+ */
+function highestNeighborFloor(sec) {
+  let high = sec.floorHeight;
+  for (const line of sec.lines) {
+    const other = line.frontSector === sec ? line.backSector : line.frontSector;
+    if (other && other.floorHeight > high) {
+      high = other.floorHeight;
+    }
+  }
+  return high;
 }
 
 /**
@@ -57,24 +111,30 @@ export function evDoPlat(ctx, line, type) {
       continue;
     }
 
-    let height = sec.floorHeight;
+    let high = sec.floorHeight;
+    let low = sec.floorHeight;
+    let direction = 1;
+
     if (type === PlatType.raiseAndChange) {
-      height = sec.floorHeight + 24 * FRACUNIT;
-    } else {
-      for (const check of sec.lines) {
-        const other = check.frontSector === sec ? check.backSector : check.frontSector;
-        if (other && other.floorHeight > height) {
-          height = other.floorHeight;
-        }
-      }
+      high = sec.floorHeight + 24 * FRACUNIT;
+    } else if (type === PlatType.raiseToNearestAndChange) {
+      high = highestNeighborFloor(sec);
+    } else if (type === PlatType.downWaitUpStay) {
+      high = sec.floorHeight;
+      low = lowestNeighborFloor(sec);
+      direction = -1;
     }
 
-    if (height === sec.floorHeight) {
+    if (high === sec.floorHeight && direction > 0) {
+      continue;
+    }
+    if (type === PlatType.downWaitUpStay && low >= high) {
       continue;
     }
 
     activated = true;
-    const plat = new PlatThinker(sec, type, height);
+    const plat = new PlatThinker(sec, type, high, low);
+    plat.direction = direction;
     plat.context = ctx;
     sec.specialdata = plat;
     ctx.thinkers.add(plat);

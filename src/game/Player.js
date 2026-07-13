@@ -11,6 +11,7 @@ import {
   WP_NOCHANGE,
   WP_PISTOL,
 } from './weapons/weaponConstants.js';
+import { NUMPOWERS } from './PlayerPowers.js';
 
 /**
  * Local player state (player_t subset from p_user.c).
@@ -73,6 +74,8 @@ export class Player {
     this.deathTics = 0;
     this.usedown = false;
     this.attackdown = false;
+    /** @type {number[]} */
+    this.powers = new Array(NUMPOWERS).fill(0);
   }
 
   /** @returns {{ x: number, y: number, z: number, angle: number, extralight: number }} */

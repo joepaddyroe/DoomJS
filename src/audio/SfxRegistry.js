@@ -9,6 +9,7 @@ export const SFX_LUMPS = {
   itemup: 'DSITEMUP',
   wpnup: 'DSWPNUP',
   oof: 'DSOOF',
+  plpain: 'DSPLPAIN',
   noway: 'DSNOWAY',
   // Menu (m_menu.c)
   pstop: 'DSPSTOP',
@@ -44,3 +45,8 @@ export const SFX_LUMPS = {
 
 /** @type {readonly string[]} */
 export const PRELOAD_SFX = Object.keys(SFX_LUMPS);
+
+/** sounds.c nominal volumes (0–127), applied on top of the SFX volume slider. */
+export const SFX_VOLUME = {
+  plpain: 96 / 127,
+};

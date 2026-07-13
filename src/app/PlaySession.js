@@ -11,6 +11,7 @@ import { tickMonsters } from '../game/monster/MonsterThink.js';
 import { MissileManager } from '../game/monster/MissileManager.js';
 import { buildSwitchPairs } from '../game/spec/SwitchList.js';
 import { MF_COUNTITEM, MF_COUNTKILL } from '../game/mobjFlags.js';
+import { tickPlayerPowers, thinkPlayerSpecialSector } from '../game/PlayerPowers.js';
 
 /**
  * Active play state: player simulation + view for rendering.
@@ -82,6 +83,8 @@ export class PlaySession {
     collision.xyMovement(player.mo, cmd);
     collision.zMovement(player);
     PlayerMovement.calcHeight(player);
+    tickPlayerPowers(player);
+    thinkPlayerSpecialSector(player);
     thinkUse(player, this.specCtx, collision);
     this.thinkers.runAll();
     thinkWeaponChange(player);

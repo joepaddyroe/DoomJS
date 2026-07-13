@@ -128,6 +128,12 @@ export function useSpecialLine(thing, line, side, ctx) {
       }
       return true;
 
+    case 21:
+      if (evDoPlat(ctx, line, PlatType.downWaitUpStay)) {
+        changeSwitchTexture(line, ctx, false);
+      }
+      return true;
+
     default:
       return false;
   }

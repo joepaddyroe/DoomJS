@@ -61,7 +61,7 @@ async function start() {
     const statusBar = new StatusBar(wad);
 
     soundSystem = new SoundSystem(createSoundDriver(SOUND_DRIVER));
-    soundSystem.load(wad);
+    await soundSystem.load(wad);
     musicSystem = new MusicSystem(wad);
 
     game = new Game({
@@ -108,6 +108,7 @@ async function start() {
       onFrame: () => {
         if (game && input) {
           game.frame(input);
+          output.setPalette(game.getFramePalette());
           output.present(renderer.pixels);
         }
       },
@@ -125,6 +126,7 @@ window.addEventListener('resize', () => {
   output.resize(window.innerWidth, window.innerHeight);
   if (game && input) {
     game.frame(input);
+    output.setPalette(game.getFramePalette());
     output.present(renderer.pixels);
   }
 });

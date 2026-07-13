@@ -20,11 +20,15 @@ export class SoundSystem {
   }
 
   /**
-   * Parse SFX lumps from the WAD. Does not touch the audio device yet.
+   * Parse SFX lumps from the WAD. Re-binds driver clips if audio is already unlocked.
    * @param {import('../wad/WadFile.js').WadFile} wad
+   * @returns {Promise<void>}
    */
-  load(wad) {
+  async load(wad) {
     this.bank.load(wad);
+    if (this.ready) {
+      await this.driver.bindClips(this.bank.clips);
+    }
   }
 
   /**
@@ -49,6 +53,9 @@ export class SoundSystem {
    * @param {{ volume?: number, pan?: number }} [options]
    */
   start(name, options = {}) {
+    if (!this.ready || !this.bank.get(name)) {
+      return;
+    }
     const volume = (options.volume ?? 1) * this.sfxVolume;
     this.driver.start(name, { ...options, volume });
   }

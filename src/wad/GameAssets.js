@@ -10,8 +10,12 @@ export class GameAssets {
   constructor(wad) {
     this.wad = wad;
 
-    /** @type {Uint8ClampedArray} RGB palette, 256 × 3 */
-    this.palette = GameAssets.parsePlaypal(wad.readLumpByName('PLAYPAL'));
+    /** @type {Uint8Array} Full PLAYPAL lump (14 palettes × 768 bytes). */
+    this.playpal = wad.readLumpByName('PLAYPAL');
+    /** @type {Uint8ClampedArray[]} Indexed RGB palettes for I_SetPalette. */
+    this.palettes = GameAssets.parseAllPlaypals(this.playpal);
+    /** @type {Uint8ClampedArray} Base palette (index 0). */
+    this.palette = this.palettes[0];
 
     /** @type {Uint8Array} Full COLORMAP lump */
     this.colormaps = wad.readLumpByName('COLORMAP');
@@ -31,16 +35,40 @@ export class GameAssets {
 
   /**
    * @param {Uint8Array} data
+   * @returns {Uint8ClampedArray[]}
+   */
+  static parseAllPlaypals(data) {
+    const count = (data.length / 768) | 0;
+    const palettes = [];
+    for (let p = 0; p < count; p++) {
+      palettes.push(GameAssets.parsePlaypalSlice(data, p));
+    }
+    return palettes;
+  }
+
+  /**
+   * @param {Uint8Array} data
+   * @param {number} index
    * @returns {Uint8ClampedArray}
    */
-  static parsePlaypal(data) {
+  static parsePlaypalSlice(data, index) {
+    const offset = index * 768;
     const rgb = new Uint8ClampedArray(256 * 3);
     for (let i = 0; i < 256; i++) {
-      rgb[i * 3] = data[i * 3];
-      rgb[i * 3 + 1] = data[i * 3 + 1];
-      rgb[i * 3 + 2] = data[i * 3 + 2];
+      const base = offset + i * 3;
+      rgb[i * 3] = data[base];
+      rgb[i * 3 + 1] = data[base + 1];
+      rgb[i * 3 + 2] = data[base + 2];
     }
     return rgb;
+  }
+
+  /**
+   * @param {number} index
+   * @returns {Uint8ClampedArray}
+   */
+  getPalette(index) {
+    return this.palettes[index] ?? this.palettes[0];
   }
 
   /**
