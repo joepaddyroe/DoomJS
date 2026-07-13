@@ -1,6 +1,7 @@
 import { fineAngleIndex } from '../../core/angles.js';
 import { FRACUNIT } from '../../core/renderConstants.js';
 import { gameRandom } from '../GameRandom.js';
+import { tryDropItem } from '../ItemDrop.js';
 import { MF_CORPSE, MF_DROPOFF, MF_JUSTHIT, MF_SHOOTABLE, MF_SOLID } from '../mobjFlags.js';
 import { fixedMul } from '../../math/fixed.js';
 import { createTrigTables } from '../../math/tables.js';
@@ -68,8 +69,9 @@ export function killMobj(target, source) {
  * @param {import('../Mobj.js').Mobj|null} source
  * @param {number} damage
  * @param {import('../Player.js').Player} player
+ * @param {{ level: import('../Level.js').Level, things: import('../MapThingSpawner.js').MapThingMobj[] }|null} [dropCtx]
  */
-export function damageMobj(target, inflictor, source, damage, player) {
+export function damageMobj(target, inflictor, source, damage, player, dropCtx = null) {
   if (!(target.flags & MF_SHOOTABLE)) {
     return;
   }
@@ -120,6 +122,9 @@ export function damageMobj(target, inflictor, source, damage, player) {
   target.health -= damage;
   if (target.health <= 0) {
     killMobj(target, source);
+    if (dropCtx) {
+      tryDropItem(target, dropCtx.level, dropCtx.things);
+    }
     return;
   }
 

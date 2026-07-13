@@ -20,15 +20,15 @@ export function thinkWeaponChange(player) {
 /**
  * Use key — doors and switches (p_user.c / p_map.c).
  * @param {import('./Player.js').Player} player
- * @param {import('./spec/Doors.js').DoorContext} doorCtx
+ * @param {import('./spec/Doors.js').SpecContext} specCtx
  * @param {import('./MapCollision.js').MapCollision} collision
  */
-export function thinkUse(player, doorCtx, collision) {
+export function thinkUse(player, specCtx, collision) {
   const cmd = player.cmd;
 
   if (cmd.buttons & BT_USE) {
     if (!player.usedown) {
-      useLines(collision, player, doorCtx);
+      useLines(collision, player, specCtx);
       player.usedown = true;
     }
   } else {

@@ -13,6 +13,7 @@ import {
   AM_MISL,
   AM_SHELL,
   MAX_AMMO,
+  WP_FIST,
   WP_PISTOL,
   WP_SHOTGUN,
 } from './weapons/weaponConstants.js';
@@ -172,13 +173,24 @@ export class ItemPickup {
     player.ammo[ammo] = Math.min(player.maxammo[ammo], player.ammo[ammo] + amount);
 
     if (oldAmmo === 0) {
-      if (ammo === AM_CLIP && player.readyweapon === 0 && player.weaponowned[WP_CHAINGUN]) {
-        player.pendingweapon = WP_CHAINGUN;
+      if (ammo === AM_CLIP) {
+        if (player.readyweapon === WP_FIST || player.pendingweapon === WP_FIST) {
+          if (player.weaponowned[WP_CHAINGUN]) {
+            player.pendingweapon = WP_CHAINGUN;
+          } else if (player.weaponowned[WP_PISTOL]) {
+            player.pendingweapon = WP_PISTOL;
+          }
+        }
       } else if (ammo === AM_SHELL
-        && (player.readyweapon === 0 || player.readyweapon === WP_PISTOL)
+        && (player.readyweapon === WP_FIST || player.readyweapon === WP_PISTOL)
         && player.weaponowned[WP_SHOTGUN]) {
         player.pendingweapon = WP_SHOTGUN;
       }
+    } else if (ammo === AM_CLIP
+      && player.readyweapon === WP_PISTOL
+      && player.ammo[AM_CLIP] > 0
+      && player.pendingweapon === WP_FIST) {
+      player.pendingweapon = WP_PISTOL;
     }
 
     return true;

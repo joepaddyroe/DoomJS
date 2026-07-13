@@ -31,7 +31,7 @@ export function radiusAttack(spot, source, damage, things, collision, player) {
     if (!checkSight(thing, spot, collision)) {
       continue;
     }
-    damageMobj(thing, spot, source, damage - dist, player);
+    damageMobj(thing, spot, source, damage - dist, player, collision.dropCtx);
   }
 
   const mo = player.mo;

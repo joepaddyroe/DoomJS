@@ -191,7 +191,7 @@ function aTroopAttack(actor, ctx) {
   if (checkMeleeRange(actor, ctx.collision)) {
     ctx.sound?.start(actor.monsterDef.attackSound ?? 'claw');
     const damage = (gameRandom() % 8 + 1) * 3;
-    damageMobj(actor.target, actor, actor, damage, ctx.player);
+    damageMobj(actor.target, actor, actor, damage, ctx.player, ctx.collision.dropCtx);
     return;
   }
 

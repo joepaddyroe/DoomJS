@@ -169,3 +169,33 @@ export function spawnMapThings(level, skill = 3) {
 
   return spawned;
 }
+
+/** Map thing type for dropped pickups (info.c). */
+const DROP_MAP_TYPES = {
+  clip: 2007,
+  shotgun: 2001,
+};
+
+/**
+ * Spawn a pickup at map coordinates (p_mobj.c — P_SpawnMobj).
+ *
+ * @param {import('./Level.js').Level} level
+ * @param {'clip' | 'shotgun'} kind
+ * @param {number} x Fixed-point x
+ * @param {number} y Fixed-point y
+ * @returns {MapThingMobj|null}
+ */
+export function spawnPickupThing(level, kind, x, y) {
+  const mapType = DROP_MAP_TYPES[kind];
+  if (!mapType) {
+    return null;
+  }
+
+  return spawnMapThing(level, {
+    x: x / FRACUNIT,
+    y: y / FRACUNIT,
+    angle: 0,
+    type: mapType,
+    options: 0,
+  });
+}

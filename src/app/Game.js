@@ -6,11 +6,11 @@ import { startPlayerDeath, tickPlayerDeath } from '../game/PlayerDeath.js';
 import { PlaySession } from './PlaySession.js';
 import { SkillMenuScene } from './SkillMenuScene.js';
 import { LevelIntroScene } from './LevelIntroScene.js';
-import { GameOverScene } from './GameOverScene.js';
 import { BspRenderer } from '../render/BspRenderer.js';
 import { createTrigTables } from '../math/tables.js';
+import { nextMapName } from '../game/MapNames.js';
 
-/** @typedef {'skillMenu' | 'levelIntro' | 'playing' | 'gameOver'} GamePhase */
+/** @typedef {'skillMenu' | 'levelIntro' | 'playing'} GamePhase */
 
 /**
  * Top-level game state machine (g_game.c subset).
@@ -47,11 +47,9 @@ export class Game {
     /** @type {import('./SkillMenuScene.js').GameSkill} */
     this.skill = 3;
 
-    this.skillMenu = new SkillMenuScene(this.wad);
+    this.skillMenu = new SkillMenuScene(this.wad, this.sound);
     /** @type {LevelIntroScene|null} */
     this.levelIntro = null;
-    /** @type {GameOverScene|null} */
-    this.gameOver = null;
 
     /** @type {import('../game/MapLoader.js').DoomMap|null} */
     this.map = null;
@@ -87,20 +85,14 @@ export class Game {
             this.playSession.tick(cmd);
             this.statusBar.tick(player);
             if (player.health <= 0) {
-              startPlayerDeath(player, this.sound);
+              startPlayerDeath(player, this.playSession.psprites, this.sound);
             }
-          } else if (tickPlayerDeath(player)) {
-            this.phase = 'gameOver';
-            this.gameOver = new GameOverScene(this.wad, this.renderer.pixels.slice());
           } else {
             this.statusBar.tick(player);
+            if (tickPlayerDeath(player, cmd, this.playSession.psprites)) {
+              this.beginPlay();
+            }
           }
-        }
-        break;
-
-      case 'gameOver':
-        if (this.gameOver?.tick(input)) {
-          this.beginPlay();
         }
         break;
 
@@ -124,10 +116,6 @@ export class Game {
 
       case 'playing':
         this.renderPlay();
-        break;
-
-      case 'gameOver':
-        this.gameOver?.draw(this.renderer);
         break;
 
       default:
@@ -195,8 +183,33 @@ export class Game {
 
     const player = Player.fromStart(playerStart, level);
     this.bspRenderer = new BspRenderer(level, this.textures, this.renderer, this.assets.colormaps);
-    this.playSession = new PlaySession(level, player, this.sound, this.skill);
+    this.playSession = new PlaySession(level, player, this.sound, this.skill, {
+      textures: this.textures,
+      onExitLevel: (secret) => this.completeLevel(secret),
+    });
     this.statusBar.resetForPlayer(player);
     this.phase = 'playing';
+  }
+
+  /**
+   * Finish current map and advance (g_game.c — G_ExitLevel / G_WorldDone).
+   * @param {boolean} [secret=false]
+   */
+  completeLevel(secret = false) {
+    const next = nextMapName(this.mapName, secret);
+    if (!next) {
+      this.mapName = 'E1M1';
+      this.phase = 'skillMenu';
+      this.map = null;
+      this.playSession = null;
+      this.bspRenderer = null;
+      return;
+    }
+
+    this.mapName = next;
+    this.map = null;
+    this.playSession = null;
+    this.bspRenderer = null;
+    this.beginLevelIntro();
   }
 }

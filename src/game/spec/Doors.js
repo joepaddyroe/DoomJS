@@ -24,11 +24,16 @@ export const VLDoorType = {
 };
 
 /**
- * @typedef {Object} DoorContext
+ * @typedef {Object} SpecContext
  * @property {ThinkerList} thinkers
  * @property {LevelSector[]} sectors
+ * @property {import('../../render/TextureManager.js').TextureManager} textures
+ * @property {Map<number, number>} switchPairs
  * @property {import('../../audio/SoundSystem.js').SoundSystem|null} [sound]
+ * @property {(secret?: boolean) => void} [onExitLevel]
  */
+
+/** @typedef {SpecContext} DoorContext */
 
 export class VerticalDoorThinker {
   /**

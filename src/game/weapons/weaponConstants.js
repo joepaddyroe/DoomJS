@@ -48,6 +48,14 @@ export const SPR_PUFF = 17;
 /** State indices (info.h). */
 export const S_NULL = 0;
 export const S_LIGHTDONE = 1;
+export const S_PUNCH = 2;
+export const S_PUNCHDOWN = 3;
+export const S_PUNCHUP = 4;
+export const S_PUNCH1 = 5;
+export const S_PUNCH2 = 6;
+export const S_PUNCH3 = 7;
+export const S_PUNCH4 = 8;
+export const S_PUNCH5 = 9;
 export const S_PISTOL = 10;
 export const S_PISTOLDOWN = 11;
 export const S_PISTOLUP = 12;
@@ -91,10 +99,15 @@ function addState(sprite, frame, tics, action, nextState) {
 addState(0, 0, -1, null, S_NULL);
 addState(1, 4, 0, 'Light0', S_NULL);
 
-// S_PUNCH placeholders (indices 2–9)
-for (let i = 0; i < 8; i++) {
-  addState(0, 0, 0, null, S_NULL);
-}
+// Fist (2–9) — p_pspr.c S_PUNCH*
+addState(2, 0, 1, 'WeaponReady', S_PUNCH);
+addState(2, 0, 1, 'Lower', S_PUNCHDOWN);
+addState(2, 0, 1, 'Raise', S_PUNCHUP);
+addState(2, 1, 4, null, S_PUNCH2);
+addState(2, 2, 4, 'FirePunch', S_PUNCH3);
+addState(2, 3, 5, null, S_PUNCH4);
+addState(2, 2, 4, null, S_PUNCH5);
+addState(2, 1, 5, 'ReFire', S_PUNCH);
 
 // Pistol (10–17)
 addState(3, 0, 1, 'WeaponReady', S_PISTOL);
@@ -126,10 +139,10 @@ addState(5, FF_FULLBRIGHT | 1, 3, 'Light2', S_LIGHTDONE);
 export const WEAPON_INFO = [
   {
     ammo: AM_NOAMMO,
-    upstate: S_NULL,
-    downstate: S_NULL,
-    readystate: S_NULL,
-    atkstate: S_NULL,
+    upstate: S_PUNCHUP,
+    downstate: S_PUNCHDOWN,
+    readystate: S_PUNCH,
+    atkstate: S_PUNCH1,
     flashstate: S_NULL,
   },
   {

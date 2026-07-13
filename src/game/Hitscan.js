@@ -1,4 +1,5 @@
 import { fineAngleIndex } from '../core/angles.js';
+import { MELEERANGE } from '../core/gameConstants.js';
 import { FRACBITS, FRACUNIT } from '../core/renderConstants.js';
 import { MISSILERANGE } from './weapons/weaponConstants.js';
 import { gameRandom } from './GameRandom.js';
@@ -43,6 +44,12 @@ export class Hitscan {
       this.bulletSlope = 0;
     }
     return this.bulletSlope;
+  }
+
+  /** @param {import('./Mobj.js').Mobj|import('./MapThingSpawner.js').MapThingMobj} mo */
+  punchAttack(mo) {
+    const damage = 2 * ((gameRandom() % 10) + 1);
+    this.lineAttack(mo, mo.angle >>> 0, MELEERANGE, 0, damage);
   }
 
   /**
@@ -94,7 +101,7 @@ export class Hitscan {
         damage,
         onThingHit: (thing, x, y, z) => {
           if (this.player) {
-            damageMobj(thing, mo, mo, damage, this.player);
+            damageMobj(thing, mo, mo, damage, this.player, this.collision.dropCtx);
           }
           this.puffs.spawn(x, y, z);
         },

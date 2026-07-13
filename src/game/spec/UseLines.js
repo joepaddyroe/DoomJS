@@ -49,8 +49,9 @@ function useLineRay(collision, mo, ctx, x1, y1, fineAngle) {
 
     if (useSpecialLine(mo, line, side, ctx)) {
       used = true;
+      return false;
     }
-    return false;
+    return true;
   });
 
   if (used) {

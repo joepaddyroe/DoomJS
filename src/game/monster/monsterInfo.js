@@ -24,6 +24,8 @@ import { BARREL_STATES, POSS_STATES, TROO_STATES } from './monsterStates.js';
  * @property {string|null} deathSound
  * @property {string|null} activeSound
  * @property {string|null} attackSound
+ * @property {'clip' | 'shotgun'|null} [dropItem]
+ * @property {number} [dropChance]
  */
 
 /** @type {Record<string, MonsterArchetype>} */
@@ -49,6 +51,8 @@ export const MONSTER_ARCHETYPES = {
     deathSound: 'podth1',
     activeSound: 'posact',
     attackSound: null,
+    dropItem: 'clip',
+    dropChance: 20,
   },
   troop: {
     id: 'troop',
@@ -71,6 +75,8 @@ export const MONSTER_ARCHETYPES = {
     deathSound: 'bgdth1',
     activeSound: 'bgact',
     attackSound: 'claw',
+    dropItem: 'clip',
+    dropChance: 60,
   },
   barrel: {
     id: 'barrel',

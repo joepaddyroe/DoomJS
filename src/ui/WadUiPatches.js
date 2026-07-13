@@ -10,23 +10,6 @@ export function drawFullScreenPatch(renderer, patch) {
 }
 
 /**
- * Save/load menu border (m_menu.c — M_DrawSaveLoadBorder).
- * @param {import('../render/SoftwareRenderer.js').SoftwareRenderer} renderer
- * @param {number} x
- * @param {number} y
- * @param {{ borderLeft: object, borderCenter: object, borderRight: object }} patches
- */
-export function drawSaveLoadBorder(renderer, x, y, patches) {
-  let cx = x;
-  renderer.drawPatch(cx - 8, y + 7, patches.borderLeft.header, patches.borderLeft.data);
-  for (let i = 0; i < 24; i++) {
-    renderer.drawPatch(cx, y + 7, patches.borderCenter.header, patches.borderCenter.data);
-    cx += 8;
-  }
-  renderer.drawPatch(cx, y + 7, patches.borderRight.header, patches.borderRight.data);
-}
-
-/**
  * @param {import('../wad/WadFile.js').WadFile} wad
  * @param {string} name
  * @returns {{ header: import('../render/PatchRenderer.js').PatchHeader, data: Uint8Array }}
@@ -138,20 +121,6 @@ export class MenuPatches {
       loadUiPatch(wad, 'M_SKULL1'),
       loadUiPatch(wad, 'M_SKULL2'),
     ];
-  }
-}
-
-/**
- * Death / message overlay patches (m_menu.c — M_DrawSaveLoadBorder).
- */
-export class DeathScreenPatches {
-  /**
-   * @param {import('../wad/WadFile.js').WadFile} wad
-   */
-  constructor(wad) {
-    this.borderLeft = loadUiPatch(wad, 'M_LSLEFT');
-    this.borderCenter = loadUiPatch(wad, 'M_LSCNTR');
-    this.borderRight = loadUiPatch(wad, 'M_LSRGHT');
   }
 }
 

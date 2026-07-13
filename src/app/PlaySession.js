@@ -9,6 +9,7 @@ import { spawnMapThings } from '../game/MapThingSpawner.js';
 import { ItemPickup } from '../game/ItemPickup.js';
 import { tickMonsters } from '../game/monster/MonsterThink.js';
 import { MissileManager } from '../game/monster/MissileManager.js';
+import { buildSwitchPairs } from '../game/spec/SwitchList.js';
 
 /**
  * Active play state: player simulation + view for rendering.
@@ -19,25 +20,33 @@ export class PlaySession {
    * @param {import('../game/Player.js').Player} player
    * @param {import('../audio/SoundSystem.js').SoundSystem|null} [sound]
    * @param {number} [skill=3]
+   * @param {object} [options]
+   * @param {import('../render/TextureManager.js').TextureManager} [options.textures]
+   * @param {(secret?: boolean) => void} [options.onExitLevel]
    */
-  constructor(level, player, sound = null, skill = 3) {
+  constructor(level, player, sound = null, skill = 3, options = {}) {
     this.level = level;
     this.player = player;
     this.things = spawnMapThings(level, skill);
     this.pickups = new ItemPickup(sound);
     this.collision = new MapCollision(level, this.things, this.pickups, player.mo);
     this.collision.damagePlayer = player;
+    this.collision.dropCtx = { level, things: this.things };
     this.missiles = new MissileManager(level, this.collision, sound);
     this.puffs = new PuffManager();
     this.hitscan = new Hitscan(this.collision, this.puffs, player);
     this.psprites = new Psprites(this.hitscan, sound, level);
     this.psprites.setup(player);
     this.thinkers = new ThinkerList();
-    this.doorCtx = {
+    this.specCtx = {
       thinkers: this.thinkers,
       sectors: level.sectors,
+      textures: options.textures,
+      switchPairs: options.textures ? buildSwitchPairs(options.textures) : new Map(),
       sound,
+      onExitLevel: options.onExitLevel,
     };
+    this.collision.specCtx = this.specCtx;
   }
 
   /** @param {import('../game/TicCmd.js').TicCmd} cmd */
@@ -60,7 +69,7 @@ export class PlaySession {
     collision.xyMovement(player.mo, cmd);
     collision.zMovement(player);
     PlayerMovement.calcHeight(player);
-    thinkUse(player, this.doorCtx, collision);
+    thinkUse(player, this.specCtx, collision);
     this.thinkers.runAll();
     thinkWeaponChange(player);
     this.psprites.think(player);
@@ -70,7 +79,7 @@ export class PlaySession {
       hitscan: this.hitscan,
       missiles: this.missiles,
       things: this.things,
-      sound: this.doorCtx.sound,
+      sound: this.specCtx.sound,
     });
     this.missiles.tick(player);
     this.puffs.tick();

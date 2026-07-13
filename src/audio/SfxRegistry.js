@@ -10,6 +10,11 @@ export const SFX_LUMPS = {
   wpnup: 'DSWPNUP',
   oof: 'DSOOF',
   noway: 'DSNOWAY',
+  // Menu (m_menu.c)
+  pstop: 'DSPSTOP',
+  swtchn: 'DSWTCHN',
+  swtchx: 'DSWTCHX',
+  stnmov: 'DSTNMOV',
   doropn: 'DSDOROPN',
   dorcls: 'DSDORCLS',
   // Zombieman / shotgun guy
@@ -28,6 +33,7 @@ export const SFX_LUMPS = {
   bgdth2: 'DSBGDTH2',
   bgact: 'DSBGACT',
   claw: 'DSCLAW',
+  punch: 'DSPUNCH',
   // Barrel / gib / fireball
   barexp: 'DSBAREXP',
   slop: 'DSSLOP',

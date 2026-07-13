@@ -16,6 +16,7 @@ import {
   MAPBLOCKSIZE,
   MAXINTERCEPTS,
   MAXMOVE,
+  MAXSPECIALCROSS,
   MAXSTEPHEIGHT,
   MF_DROPOFF,
   MF_MISSILE,
@@ -44,6 +45,7 @@ import { pointToAngle } from '../math/viewMath.js';
 import { MF_PICKUP, MF_SHOOTABLE, MF_SOLID, MF_SPECIAL } from './mobjFlags.js';
 import { gameRandom } from './GameRandom.js';
 import { damageMobj } from './monster/MobjCombat.js';
+import { crossSpecialLine } from './spec/CrossSpecialLine.js';
 
 /** Vertical auto-aim cone (p_map.c — P_AimLineAttack topslope/bottomslope). */
 const AIM_TOP_SLOPE = ((100 * FRACUNIT) / 160) | 0;
@@ -97,6 +99,15 @@ export class MapCollision {
     this.onMissileExplode = null;
     /** @type {import('./Player.js').Player|null} */
     this.damagePlayer = null;
+
+    /** @type {import('./Level.js').LevelLine[]} */
+    this.spechit = new Array(MAXSPECIALCROSS);
+    this.numspechit = 0;
+    /** @type {import('./spec/Doors.js').SpecContext|null} */
+    this.specCtx = null;
+
+    /** @type {{ level: import('./Level.js').Level, things: import('./MapThingSpawner.js').MapThingMobj[] }|null} */
+    this.dropCtx = null;
   }
 
   /**
@@ -106,6 +117,7 @@ export class MapCollision {
    */
   checkPosition(thing, x, y) {
     this.validcount++;
+    this.numspechit = 0;
     this.tmthing = thing;
     this.tmflags = thing.flags;
     this.tmx = x;
@@ -213,6 +225,7 @@ export class MapCollision {
           this.tmthing.target,
           damage,
           this.damagePlayer,
+          this.dropCtx,
         );
       }
       return false;
@@ -277,6 +290,11 @@ export class MapCollision {
       this.tmdropoffz = opening.lowfloor;
     }
 
+    if (ld.special && this.tmthing.playerObject
+      && this.numspechit < MAXSPECIALCROSS) {
+      this.spechit[this.numspechit++] = ld;
+    }
+
     return true;
   }
 
@@ -286,6 +304,9 @@ export class MapCollision {
    * @param {number} y
    */
   tryMove(thing, x, y) {
+    const oldx = thing.x;
+    const oldy = thing.y;
+
     if (!this.checkPosition(thing, x, y)) {
       return false;
     }
@@ -322,6 +343,18 @@ export class MapCollision {
     thing.x = x;
     thing.y = y;
     thing.subsector = this.level.findSubsector(x, y);
+
+    if (thing.playerObject && this.specCtx) {
+      for (let i = 0; i < this.numspechit; i++) {
+        const line = this.spechit[i];
+        const oldSide = pointOnLineSide(oldx, oldy, line);
+        const newSide = pointOnLineSide(x, y, line);
+        if (oldSide !== newSide) {
+          crossSpecialLine(thing, line, oldSide, this.specCtx);
+        }
+      }
+    }
+
     return true;
   }
 

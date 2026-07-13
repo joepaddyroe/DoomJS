@@ -147,6 +147,9 @@ export class Psprites {
       case 'FireShotgun':
         this.fireShotgun(player, psp);
         break;
+      case 'FirePunch':
+        this.firePunch(player, psp);
+        break;
       case 'ReFire':
         this.reFire(player, psp);
         break;
@@ -170,7 +173,12 @@ export class Psprites {
       player.pendingweapon = player.readyweapon;
     }
 
-    const newstate = WEAPON_INFO[player.pendingweapon].upstate;
+    const info = WEAPON_INFO[player.pendingweapon];
+    if (!info) {
+      return;
+    }
+
+    const newstate = info.upstate;
     player.pendingweapon = WP_NOCHANGE;
     player.psprites[PS_WEAPON].sy = WEAPONBOTTOM;
     this.setPsprite(player, PS_WEAPON, newstate);
@@ -243,6 +251,17 @@ export class Psprites {
     }
 
     psp.sy = WEAPONBOTTOM;
+
+    // p_pspr.c — A_Lower: dead players keep the weapon off screen
+    if (player.dead || player.health <= 0) {
+      this.setPsprite(player, PS_WEAPON, S_NULL);
+      return;
+    }
+
+    if (player.pendingweapon === WP_NOCHANGE) {
+      player.pendingweapon = player.readyweapon;
+    }
+
     player.readyweapon = player.pendingweapon;
     this.bringUpWeapon(player);
   }
@@ -257,6 +276,12 @@ export class Psprites {
     psp.sy = WEAPONTOP;
     const newstate = WEAPON_INFO[player.readyweapon].readystate;
     this.setPsprite(player, PS_WEAPON, newstate);
+  }
+
+  /** @param {import('../Player.js').Player} player @param {Psprite} psp */
+  firePunch(player, psp) {
+    this.hitscan.punchAttack(player.mo);
+    this.sound?.start('punch');
   }
 
   /** @param {import('../Player.js').Player} player @param {Psprite} psp */

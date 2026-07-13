@@ -37,6 +37,44 @@ export function findLowestCeilingSurrounding(sec) {
 }
 
 /**
+ * @param {import('../Level.js').LevelSector} sec
+ */
+export function findLowestFloorSurrounding(sec) {
+  let height = 0x7fffffff;
+
+  for (const check of sec.lines) {
+    const other = getNextSector(check, sec);
+    if (!other) {
+      continue;
+    }
+    if (other.floorHeight < height) {
+      height = other.floorHeight;
+    }
+  }
+
+  return height;
+}
+
+/**
+ * @param {import('../Level.js').LevelSector} sec
+ */
+export function findHighestFloorSurrounding(sec) {
+  let height = -0x80000000;
+
+  for (const check of sec.lines) {
+    const other = getNextSector(check, sec);
+    if (!other) {
+      continue;
+    }
+    if (other.floorHeight > height) {
+      height = other.floorHeight;
+    }
+  }
+
+  return height;
+}
+
+/**
  * @param {import('../Level.js').LevelLine} line
  * @param {import('../Level.js').LevelSector[]} sectors
  * @param {number} start

@@ -14,14 +14,16 @@ const SKULL_Y_OFF = -5;
 export class SkillMenuScene {
   /**
    * @param {import('../wad/WadFile.js').WadFile} wad
+   * @param {import('../audio/SoundSystem.js').SoundSystem|null} [sound]
    */
-  constructor(wad) {
+  constructor(wad, sound = null) {
     /** @type {GameSkill} */
     this.selected = 3;
     this.tics = 0;
     this.whichSkull = 0;
     this.skullAnimCounter = 8;
     this.patches = new MenuPatches(wad);
+    this.sound = sound;
   }
 
   /** @param {import('../platform/input/KeyboardInput.js').KeyboardInput} input */
@@ -34,23 +36,42 @@ export class SkillMenuScene {
     }
 
     if (input.consumeJustPressed('Digit1')) {
-      this.selected = 1;
+      this.selectSkill(1);
     } else if (input.consumeJustPressed('Digit2')) {
-      this.selected = 2;
+      this.selectSkill(2);
     } else if (input.consumeJustPressed('Digit3')) {
-      this.selected = 3;
+      this.selectSkill(3);
     } else if (input.consumeJustPressed('Digit4')) {
-      this.selected = 4;
+      this.selectSkill(4);
     }
 
     if (input.consumeJustPressed('ArrowUp')) {
-      this.selected = Math.max(1, this.selected - 1);
+      this.moveSelection(-1);
     }
     if (input.consumeJustPressed('ArrowDown')) {
-      this.selected = Math.min(4, this.selected + 1);
+      this.moveSelection(1);
     }
 
-    return input.consumeJustPressed('Enter') || input.consumeJustPressed('Space');
+    if (input.consumeJustPressed('Enter') || input.consumeJustPressed('Space')) {
+      this.sound?.start('pistol');
+      return true;
+    }
+
+    return false;
+  }
+
+  /** @param {GameSkill} skill */
+  selectSkill(skill) {
+    if (this.selected !== skill) {
+      this.selected = skill;
+    }
+    this.sound?.start('pstop');
+  }
+
+  /** @param {number} delta */
+  moveSelection(delta) {
+    this.selected = Math.max(1, Math.min(4, this.selected + delta));
+    this.sound?.start('pstop');
   }
 
   /**

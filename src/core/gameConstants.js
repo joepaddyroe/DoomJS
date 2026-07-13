@@ -65,6 +65,11 @@ export const MELEERANGE = 64 * FRACUNIT;
 /** Door movement speed / wait (p_spec.h). */
 export const VDOORSPEED = FRACUNIT * 2;
 export const VDOORWAIT = 150;
+/** p_spec.h */
+export const FLOORSPEED = FRACUNIT;
+export const PLATSPEED = FRACUNIT;
+export const PLATWAIT = 35;
+export const MAXSPECIALCROSS = 8;
 
 /** Path trace flags (p_maputl.c). */
 export const PT_ADDLINES = 1;

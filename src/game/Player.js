@@ -71,8 +71,8 @@ export class Player {
     this.ammo[AM_CLIP] = 50;
     this.dead = false;
     this.deathTics = 0;
-    this.usedown = true;
-    this.attackdown = true;
+    this.usedown = false;
+    this.attackdown = false;
   }
 
   /** @returns {{ x: number, y: number, z: number, angle: number, extralight: number }} */

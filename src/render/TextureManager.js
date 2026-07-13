@@ -186,6 +186,11 @@ export class TextureManager {
     return index;
   }
 
+  /** @param {number} index */
+  textureNameForIndex(index) {
+    return this.textures[index]?.name ?? null;
+  }
+
   /**
    * @param {number} flatIndex
    * @returns {Uint8Array|null}
