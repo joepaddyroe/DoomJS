@@ -97,6 +97,9 @@ export function damageMobj(target, inflictor, source, damage, player) {
     if (player.damagecount > 100) {
       player.damagecount = 100;
     }
+    if (source && source !== player.mo) {
+      player.attacker = source;
+    }
     return;
   }
 

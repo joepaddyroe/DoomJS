@@ -111,6 +111,7 @@ async function start() {
           return;
         }
         playSession.tick(input.buildTicCmd());
+        statusBar?.tick(playSession.player);
       },
       onFrame: () => {
         if (!bspRenderer || !playSession) {

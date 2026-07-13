@@ -40,6 +40,12 @@ export class Player {
     mo.health = this.health;
     this.armorpoints = 0;
     this.armortype = 0;
+    this.damagecount = 0;
+    this.bonuscount = 0;
+    /** @type {import('./Mobj.js').Mobj|null} */
+    this.attacker = null;
+    /** @type {boolean[]} */
+    this.cards = new Array(6).fill(false);
     this.backpack = false;
     this.maxammo = [...MAX_AMMO];
     this.readyweapon = WP_PISTOL;

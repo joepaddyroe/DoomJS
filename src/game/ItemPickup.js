@@ -1,3 +1,11 @@
+import {
+  CARD_BLUE,
+  CARD_BLUE_SKULL,
+  CARD_RED,
+  CARD_RED_SKULL,
+  CARD_YELLOW,
+  CARD_YELLOW_SKULL,
+} from './PlayerCards.js';
 import { FRACUNIT } from '../core/renderConstants.js';
 import {
   AM_CELL,
@@ -101,6 +109,18 @@ export class ItemPickup {
         return this.giveArmor(player, 1);
       case 'armor_blue':
         return this.giveArmor(player, 2);
+      case 'key_blue':
+        return this.giveCard(player, CARD_BLUE);
+      case 'key_yellow':
+        return this.giveCard(player, CARD_YELLOW);
+      case 'key_red':
+        return this.giveCard(player, CARD_RED);
+      case 'skull_blue':
+        return this.giveCard(player, CARD_BLUE_SKULL);
+      case 'skull_yellow':
+        return this.giveCard(player, CARD_YELLOW_SKULL);
+      case 'skull_red':
+        return this.giveCard(player, CARD_RED_SKULL);
       case 'megasphere':
         player.health = MAX_BONUS_HEALTH;
         player.mo.health = player.health;
@@ -125,6 +145,16 @@ export class ItemPickup {
       default:
         return false;
     }
+  }
+
+  /** @param {import('./Player.js').Player} player @param {number} card */
+  giveCard(player, card) {
+    if (player.cards[card]) {
+      return false;
+    }
+    player.cards[card] = true;
+    player.bonuscount += 2;
+    return true;
   }
 
   /**
@@ -241,6 +271,7 @@ export class ItemPickup {
 
     if (!player.weaponowned[info.weapon]) {
       player.weaponowned[info.weapon] = true;
+      player.bonuscount += 2;
       if (info.weapon === WP_SHOTGUN) {
         player.pendingweapon = WP_SHOTGUN;
       }

@@ -55,6 +55,14 @@ export const MOBJ_BY_TYPE = {
   2045: { sprite: 'PVIS', flags: MF_SPECIAL | MF_COUNTITEM, radius: 20 * FRACUNIT, height: 16 * FRACUNIT, pickup: 'liteamp' },
   83: { sprite: 'MEGA', flags: MF_SPECIAL | MF_COUNTITEM, radius: 20 * FRACUNIT, height: 16 * FRACUNIT, pickup: 'megasphere' },
 
+  // Keys (info.c — MT_MISC4–9)
+  5: { sprite: 'BKEY', flags: MF_SPECIAL, radius: 20 * FRACUNIT, height: 16 * FRACUNIT, pickup: 'key_blue' },
+  6: { sprite: 'YKEY', flags: MF_SPECIAL, radius: 20 * FRACUNIT, height: 16 * FRACUNIT, pickup: 'key_yellow' },
+  13: { sprite: 'RKEY', flags: MF_SPECIAL, radius: 20 * FRACUNIT, height: 16 * FRACUNIT, pickup: 'key_red' },
+  40: { sprite: 'BSKU', flags: MF_SPECIAL, radius: 20 * FRACUNIT, height: 16 * FRACUNIT, pickup: 'skull_blue' },
+  39: { sprite: 'YSKU', flags: MF_SPECIAL, radius: 20 * FRACUNIT, height: 16 * FRACUNIT, pickup: 'skull_yellow' },
+  38: { sprite: 'RSKU', flags: MF_SPECIAL, radius: 20 * FRACUNIT, height: 16 * FRACUNIT, pickup: 'skull_red' },
+
   // Decorations (E1M1 and common)
   10: { sprite: 'PLAY', frame: 22, flags: 0, radius: 20 * FRACUNIT, height: 16 * FRACUNIT },
   12: { sprite: 'PLAY', frame: 22, flags: 0, radius: 20 * FRACUNIT, height: 16 * FRACUNIT },
