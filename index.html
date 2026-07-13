@@ -29,9 +29,14 @@
       height: 100%;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
-      cursor: crosshair;
+      cursor: default;
       outline: none;
       background: #000;
+      touch-action: none;
+    }
+
+    canvas.mouse-captured {
+      cursor: none;
     }
 
     #wad-loader {

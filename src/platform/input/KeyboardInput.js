@@ -1,5 +1,4 @@
 import {
-  ANGLETURN,
   FORWARDMOVE,
   SIDEMOVE,
 } from '../../core/gameConstants.js';
@@ -7,7 +6,7 @@ import { BT_ATTACK, BT_USE, weaponChangeButtons } from '../../core/inputButtons.
 import { createTicCmd } from '../../game/TicCmd.js';
 
 /**
- * Keyboard to ticcmd mapping (g_game.c — G_BuildTiccmd).
+ * Keyboard + mouse button input (g_game.c — G_BuildTiccmd).
  */
 export class KeyboardInput {
   constructor() {
@@ -16,8 +15,16 @@ export class KeyboardInput {
     /** @type {Set<string>} */
     this.justPressed = new Set();
     this.speed = 1;
-    this.turnSpeed = 1;
     this.enabled = false;
+    this.mouseAttack = false;
+    this.mouseUse = false;
+    this.pendingActivate = false;
+    /** @type {(() => boolean)|null} */
+    this.combatEnabled = null;
+    /** @type {HTMLCanvasElement|null} */
+    this.canvas = null;
+    /** @type {import('./MouseLook.js').MouseLook|null} */
+    this.mouseLook = null;
 
     this._onKeyDown = (event) => {
       if (!this.enabled) {
@@ -39,8 +46,61 @@ export class KeyboardInput {
       }
     };
 
+    this._onMouseDown = (event) => {
+      if (!this.canvas || event.target !== this.canvas) {
+        return;
+      }
+      if (event.button === 0) {
+        this.pendingActivate = true;
+        if (this.combatEnabled?.()) {
+          this.mouseAttack = true;
+        }
+      } else if (event.button === 2) {
+        event.preventDefault();
+        this.mouseUse = true;
+      }
+      this.mouseLook?.handlePress(event);
+    };
+
+    this._onMouseUp = (event) => {
+      if (event.button === 0) {
+        this.mouseAttack = false;
+      } else if (event.button === 2) {
+        this.mouseUse = false;
+      }
+    };
+
+    this._onContextMenu = (event) => {
+      if (this.canvas && event.target === this.canvas) {
+        event.preventDefault();
+      }
+    };
+
     window.addEventListener('keydown', this._onKeyDown);
     window.addEventListener('keyup', this._onKeyUp);
+    window.addEventListener('mouseup', this._onMouseUp);
+    window.addEventListener('contextmenu', this._onContextMenu);
+  }
+
+  /**
+   * @param {HTMLCanvasElement} canvas
+   */
+  attachCanvas(canvas) {
+    if (this.canvas) {
+      this.canvas.removeEventListener('mousedown', this._onMouseDown);
+    }
+    this.canvas = canvas;
+    canvas.addEventListener('mousedown', this._onMouseDown);
+  }
+
+  /** @param {() => boolean} fn */
+  setCombatEnabled(fn) {
+    this.combatEnabled = fn;
+  }
+
+  /** @param {import('./MouseLook.js').MouseLook} mouseLook */
+  setMouseLook(mouseLook) {
+    this.mouseLook = mouseLook;
   }
 
   /** @param {boolean} enabled */
@@ -48,7 +108,14 @@ export class KeyboardInput {
     this.enabled = enabled;
     if (!enabled) {
       this.keys.clear();
+      this.mouseAttack = false;
+      this.mouseUse = false;
     }
+  }
+
+  clearMouseButtons() {
+    this.mouseAttack = false;
+    this.mouseUse = false;
   }
 
   /** Clear one-shot key presses at the end of each tic. */
@@ -56,9 +123,16 @@ export class KeyboardInput {
     this.justPressed.clear();
   }
 
-  /** @returns {string|null} First key pressed this frame, or null. */
+  /** @returns {string|null} First key or canvas click this frame, or null. */
   consumeAnyKey() {
-    if (!this.enabled || this.justPressed.size === 0) {
+    if (!this.enabled) {
+      return null;
+    }
+    if (this.pendingActivate) {
+      this.pendingActivate = false;
+      return 'Mouse0';
+    }
+    if (this.justPressed.size === 0) {
       return null;
     }
     const code = this.justPressed.values().next().value;
@@ -118,12 +192,11 @@ export class KeyboardInput {
 
     const forwardSpeed = FORWARDMOVE[this.speed];
     const sideSpeed = SIDEMOVE[this.speed];
-    const turnSpeed = ANGLETURN[this.turnSpeed];
 
-    if (this.keys.has('ArrowUp') || this.keys.has('KeyW')) {
+    if (this.keys.has('KeyW')) {
       cmd.forwardmove += forwardSpeed;
     }
-    if (this.keys.has('ArrowDown') || this.keys.has('KeyS')) {
+    if (this.keys.has('KeyS')) {
       cmd.forwardmove -= forwardSpeed;
     }
     if (this.keys.has('KeyA')) {
@@ -132,16 +205,21 @@ export class KeyboardInput {
     if (this.keys.has('KeyD')) {
       cmd.sidemove += sideSpeed;
     }
-    if (this.keys.has('ArrowLeft')) {
-      cmd.angleturn += turnSpeed;
-    }
-    if (this.keys.has('ArrowRight')) {
-      cmd.angleturn -= turnSpeed;
-    }
-    if (this.keys.has('ControlLeft') || this.keys.has('ControlRight') || this.keys.has('Space')) {
+
+    cmd.angleturn += this.mouseLook?.consumeTurnDelta() ?? 0;
+
+    const attack = this.keys.has('ControlLeft')
+      || this.keys.has('ControlRight')
+      || this.keys.has('Space')
+      || this.mouseAttack;
+    if (attack) {
       cmd.buttons |= BT_ATTACK;
     }
-    if (this.keys.has('KeyE') || this.keys.has('Enter')) {
+
+    const use = this.keys.has('KeyE')
+      || this.keys.has('Enter')
+      || this.mouseUse;
+    if (use) {
       cmd.buttons |= BT_USE;
     }
 

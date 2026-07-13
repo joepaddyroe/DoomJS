@@ -7,6 +7,7 @@ import { TextureManager } from './render/TextureManager.js';
 import { GameLoop } from './app/GameLoop.js';
 import { Game } from './app/Game.js';
 import { KeyboardInput } from './platform/input/KeyboardInput.js';
+import { MouseLook, sensitivityFromMenuSetting } from './platform/input/MouseLook.js';
 import { SpritePatches, PspriteRenderer } from './wad/SpritePatches.js';
 import { BillboardRenderer } from './render/BillboardRenderer.js';
 import { StatusBar } from './render/StatusBar.js';
@@ -27,6 +28,8 @@ const renderer = new SoftwareRenderer();
 let game = null;
 /** @type {KeyboardInput|null} */
 let input = null;
+/** @type {MouseLook|null} */
+let mouseLook = null;
 /** @type {GameLoop|null} */
 let gameLoop = null;
 /** @type {SoundSystem|null} */
@@ -93,9 +96,31 @@ async function start() {
     });
 
     input = new KeyboardInput();
+    input.attachCanvas(canvas);
+
+    const canCaptureMouse = () => {
+      if (!game) {
+        return false;
+      }
+      // Release only for the in-game pause menu; keep capture through intro/wipe.
+      if (game.phase === 'playing' && game.menu.active) {
+        return false;
+      }
+      return game.phase === 'title'
+        || game.phase === 'levelIntro'
+        || game.phase === 'intermission'
+        || game.phase === 'wipe'
+        || game.phase === 'playing';
+    };
+    const canMouseLook = () => game?.phase === 'playing' && !game.menu.active;
+
+    input.setCombatEnabled(canMouseLook);
+    const getMouseSensitivity = () => sensitivityFromMenuSetting(game?.menu.mouseSensitivity ?? 5);
+    mouseLook = new MouseLook(canvas, canCaptureMouse, canMouseLook, getMouseSensitivity);
+    input.setMouseLook(mouseLook);
     input.setEnabled(true);
 
-    canvas.addEventListener('click', () => {
+    canvas.addEventListener('mousedown', () => {
       input.setEnabled(true);
       void soundSystem?.unlock();
       void musicSystem?.unlock();
@@ -108,7 +133,7 @@ async function start() {
     output.present(renderer.pixels);
 
     console.log(
-      `DoomJS ${BUILD_TAG} — Press any key at title, then New Game. `
+      `DoomJS ${BUILD_TAG} — WASD move, mouse look, LMB fire, RMB use. `
       + `Sound: ${soundSystem?.driverId ?? 'none'} (?sound=webaudio|howler|null). `
       + `${output.gameWidth}×${output.gameHeight} @ ${output.pixelScale}×.`,
     );
@@ -116,6 +141,10 @@ async function start() {
     gameLoop = new GameLoop({
       onTick: () => {
         if (game && input) {
+          if (mouseLook && !canCaptureMouse()) {
+            mouseLook.leaveCapture();
+            input.clearMouseButtons();
+          }
           game.tick(input);
         }
       },

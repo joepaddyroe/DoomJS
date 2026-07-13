@@ -3,7 +3,7 @@ import { MenuPatches } from '../ui/WadUiPatches.js';
 
 /**
  * Title screen (d_main.c — D_StartTitle / TITLEPIC).
- * Any key opens the main menu.
+ * Any key or canvas click opens the main menu.
  */
 export class TitleScene {
   /**
