@@ -61,12 +61,13 @@ export class CanvasVideoOutput {
   }
 
   /**
-   * Integer scale chosen so the image is as tall as the window allows (4:3 preserved).
-   * Wider viewports get pillarbox bars on the left and right only.
+   * Uniform scale chosen to fill the viewport height (4:3 preserved).
+   * This eliminates vertical letterboxing at the cost of possible horizontal crop
+   * on very narrow viewports.
    * @returns {number}
    */
   computePixelScale() {
-    return Math.max(1, Math.floor(this.windowHeight / this.gameHeight));
+    return Math.max(1, this.windowHeight / this.gameHeight);
   }
 
   /**
@@ -75,10 +76,10 @@ export class CanvasVideoOutput {
    */
   getDestRect() {
     const w = this.gameWidth * this.pixelScale;
-    const h = this.gameHeight * this.pixelScale;
+    const h = this.windowHeight;
     return {
       x: ((this.windowWidth - w) / 2) | 0,
-      y: ((this.windowHeight - h) / 2) | 0,
+      y: 0,
       w,
       h,
     };

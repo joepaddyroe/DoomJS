@@ -88,7 +88,7 @@ async function start() {
     output.present(renderer.pixels);
 
     console.log(
-      `DoomJS ${BUILD_TAG} — Select skill (1-4), Enter to start. `
+      `DoomJS ${BUILD_TAG} — Press any key at title, then New Game. `
       + `Sound: ${soundSystem?.driverId ?? 'none'} (?sound=webaudio|howler|null). `
       + `${output.gameWidth}×${output.gameHeight} @ ${output.pixelScale}×.`,
     );

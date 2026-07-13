@@ -12,8 +12,8 @@ export const SFX_LUMPS = {
   noway: 'DSNOWAY',
   // Menu (m_menu.c)
   pstop: 'DSPSTOP',
-  swtchn: 'DSWTCHN',
-  swtchx: 'DSWTCHX',
+  swtchn: 'DSSWTCHN',
+  swtchx: 'DSSWTCHX',
   stnmov: 'DSTNMOV',
   doropn: 'DSDOROPN',
   dorcls: 'DSDORCLS',

@@ -56,6 +56,38 @@ export class KeyboardInput {
     this.justPressed.clear();
   }
 
+  /** @returns {string|null} First key pressed this frame, or null. */
+  consumeAnyKey() {
+    if (!this.enabled || this.justPressed.size === 0) {
+      return null;
+    }
+    const code = this.justPressed.values().next().value;
+    this.justPressed.delete(code);
+    return code;
+  }
+
+  /**
+   * Menu hotkey letter/digit for the current frame.
+   * @returns {string|null}
+   */
+  consumeMenuHotkey() {
+    if (!this.enabled) {
+      return null;
+    }
+
+    for (const code of this.justPressed) {
+      if (code.startsWith('Key') && code.length === 4) {
+        this.justPressed.delete(code);
+        return code.slice(3).toLowerCase();
+      }
+      if (code.startsWith('Digit') && code.length === 6) {
+        this.justPressed.delete(code);
+        return code.slice(5);
+      }
+    }
+    return null;
+  }
+
   /** @param {string} code */
   consumeJustPressed(code) {
     if (!this.enabled || !this.justPressed.has(code)) {
@@ -73,6 +105,7 @@ export class KeyboardInput {
       || code === 'Space'
       || code === 'KeyE' || code === 'Enter'
       || code === 'KeyR'
+      || code === 'Escape' || code === 'Backspace'
       || (code >= 'Digit1' && code <= 'Digit7');
   }
 

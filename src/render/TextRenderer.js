@@ -37,6 +37,14 @@ const GLYPHS = {
   V: [0x11, 0x11, 0x11, 0x11, 0x0a, 0x0a, 0x04],
   W: [0x11, 0x11, 0x11, 0x15, 0x15, 0x1b, 0x11],
   Y: [0x11, 0x11, 0x0a, 0x04, 0x04, 0x04, 0x04],
+  Q: [0x0e, 0x11, 0x11, 0x11, 0x15, 0x12, 0x0d],
+  '!': [0x04, 0x04, 0x04, 0x04, 0x04, 0x00, 0x04],
+  '?': [0x0e, 0x11, 0x02, 0x04, 0x04, 0x00, 0x04],
+  "'": [0x04, 0x04, 0x08, 0x00, 0x00, 0x00, 0x00],
+  ':': [0x00, 0x04, 0x00, 0x00, 0x04, 0x00, 0x00],
+  '/': [0x01, 0x02, 0x04, 0x08, 0x10, 0x00, 0x00],
+  '(': [0x02, 0x04, 0x08, 0x08, 0x08, 0x04, 0x02],
+  ')': [0x08, 0x04, 0x02, 0x02, 0x02, 0x04, 0x08],
 };
 
 /**
@@ -93,10 +101,38 @@ export class TextRenderer {
    * @param {number} color
    * @param {number} [scale=1]
    */
+  static measureWidth(text, scale = 1) {
+    return text.length * 6 * scale - scale;
+  }
+
+  /**
+   * @param {Uint8Array} pixels
+   * @param {string} text
+   * @param {number} y
+   * @param {number} color
+   * @param {number} [scale=1]
+   */
   static drawCentered(pixels, text, y, color, scale = 1) {
-    const width = text.length * 6 * scale - scale;
+    const width = TextRenderer.measureWidth(text, scale);
     const x = ((SCREENWIDTH - width) / 2) | 0;
     TextRenderer.drawString(pixels, x, y, text, color, scale);
+  }
+
+  /**
+   * @param {Uint8Array} pixels
+   * @param {string} text
+   * @param {number} color
+   * @param {number} [scale=1]
+   */
+  static drawCenteredBlock(pixels, text, color, scale = 1) {
+    const lines = text.split('\n');
+    const lineHeight = 8 * scale;
+    const totalHeight = lines.length * lineHeight;
+    let y = ((200 - totalHeight) / 2) | 0;
+    for (const line of lines) {
+      TextRenderer.drawCentered(pixels, line, y, color, scale);
+      y += lineHeight;
+    }
   }
 
   /**

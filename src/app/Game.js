@@ -1,16 +1,18 @@
+import { SCREENHEIGHT, SCREENWIDTH, VIEWHEIGHT } from '../core/renderConstants.js';
 import { BT_ATTACK } from '../core/inputButtons.js';
 import { MapLoader } from '../game/MapLoader.js';
 import { Level } from '../game/Level.js';
 import { Player } from '../game/Player.js';
 import { startPlayerDeath, tickPlayerDeath } from '../game/PlayerDeath.js';
 import { PlaySession } from './PlaySession.js';
-import { SkillMenuScene } from './SkillMenuScene.js';
+import { TitleScene } from './TitleScene.js';
 import { LevelIntroScene } from './LevelIntroScene.js';
 import { BspRenderer } from '../render/BspRenderer.js';
 import { createTrigTables } from '../math/tables.js';
 import { nextMapName } from '../game/MapNames.js';
+import { MenuController } from '../ui/MenuController.js';
 
-/** @typedef {'skillMenu' | 'levelIntro' | 'playing'} GamePhase */
+/** @typedef {'title' | 'levelIntro' | 'playing'} GamePhase */
 
 /**
  * Top-level game state machine (g_game.c subset).
@@ -43,11 +45,11 @@ export class Game {
     this.trigTables = createTrigTables();
 
     /** @type {GamePhase} */
-    this.phase = 'skillMenu';
-    /** @type {import('./SkillMenuScene.js').GameSkill} */
+    this.phase = 'title';
     this.skill = 3;
 
-    this.skillMenu = new SkillMenuScene(this.wad, this.sound);
+    this.menu = new MenuController(this.wad, this.sound);
+    this.titleScene = new TitleScene(this.wad, this.menu);
     /** @type {LevelIntroScene|null} */
     this.levelIntro = null;
 
@@ -62,11 +64,10 @@ export class Game {
   /** @param {import('../platform/input/KeyboardInput.js').KeyboardInput} input */
   tick(input) {
     switch (this.phase) {
-      case 'skillMenu':
-        if (this.skillMenu.tick(input)) {
-          this.skill = this.skillMenu.selected;
-          this.beginLevelIntro();
-        }
+      case 'title':
+        this.titleScene.tick(input);
+        this.menu.tick(input);
+        this.handleMenuAction(this.menu.consumeAction());
         break;
 
       case 'levelIntro':
@@ -103,14 +104,34 @@ export class Game {
     input.endFrame();
   }
 
+  /** @param {import('../ui/MenuController.js').MenuAction} action */
+  handleMenuAction(action) {
+    if (!action) {
+      return;
+    }
+
+    if (action.type === 'startGame') {
+      this.skill = action.skill;
+      this.mapName = action.mapName;
+      this.beginLevelIntro();
+      return;
+    }
+
+    if (action.type === 'returnTitle') {
+      this.returnToTitle();
+    }
+  }
+
   /** @param {import('../platform/input/KeyboardInput.js').KeyboardInput} input */
   frame(input) {
     switch (this.phase) {
-      case 'skillMenu':
-        this.skillMenu.draw(this.renderer);
+      case 'title':
+        this.renderer.initBuffer(SCREENWIDTH, SCREENHEIGHT);
+        this.titleScene.draw(this.renderer);
         break;
 
       case 'levelIntro':
+        this.renderer.initBuffer(SCREENWIDTH, SCREENHEIGHT);
         this.levelIntro?.draw(this.renderer);
         break;
 
@@ -128,6 +149,7 @@ export class Game {
       return;
     }
 
+    this.renderer.initBuffer(SCREENWIDTH, VIEWHEIGHT);
     this.bspRenderer.renderView(this.playSession.view());
 
     const { drawSegs, drawSegCount } = this.bspRenderer.ctx;
@@ -175,6 +197,10 @@ export class Game {
       this.map = MapLoader.load(this.wad, this.mapName);
     }
 
+    // Ensure the renderer view size matches gameplay before creating RenderContext.
+    // RenderContext caches viewWidth/viewHeight in its ViewSetup tables.
+    this.renderer.initBuffer(SCREENWIDTH, VIEWHEIGHT);
+
     const level = Level.fromMap(this.map, this.textures, this.map.blockmap);
     const playerStart = MapLoader.findPlayerStart(this.map);
     if (!playerStart) {
@@ -188,7 +214,20 @@ export class Game {
       onExitLevel: (secret) => this.completeLevel(secret),
     });
     this.statusBar.resetForPlayer(player);
+    this.menu.setUsergame(true);
+    this.menu.applySfxVolume();
     this.phase = 'playing';
+  }
+
+  returnToTitle() {
+    this.phase = 'title';
+    this.mapName = 'E1M1';
+    this.map = null;
+    this.playSession = null;
+    this.bspRenderer = null;
+    this.levelIntro = null;
+    this.menu.setUsergame(false);
+    this.menu.close();
   }
 
   /**
@@ -198,11 +237,7 @@ export class Game {
   completeLevel(secret = false) {
     const next = nextMapName(this.mapName, secret);
     if (!next) {
-      this.mapName = 'E1M1';
-      this.phase = 'skillMenu';
-      this.map = null;
-      this.playSession = null;
-      this.bspRenderer = null;
+      this.returnToTitle();
       return;
     }
 
