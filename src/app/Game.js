@@ -7,12 +7,14 @@ import { startPlayerDeath, tickPlayerDeath } from '../game/PlayerDeath.js';
 import { PlaySession } from './PlaySession.js';
 import { TitleScene } from './TitleScene.js';
 import { LevelIntroScene } from './LevelIntroScene.js';
+import { IntermissionStatsScene } from './IntermissionStatsScene.js';
 import { BspRenderer } from '../render/BspRenderer.js';
 import { createTrigTables } from '../math/tables.js';
 import { nextMapName } from '../game/MapNames.js';
 import { MenuController } from '../ui/MenuController.js';
+import { WipeMelt } from '../ui/WipeMelt.js';
 
-/** @typedef {'title' | 'levelIntro' | 'playing'} GamePhase */
+/** @typedef {'title' | 'levelIntro' | 'intermission' | 'playing' | 'wipe'} GamePhase */
 
 /**
  * Top-level game state machine (g_game.c subset).
@@ -52,6 +54,11 @@ export class Game {
     this.titleScene = new TitleScene(this.wad, this.menu);
     /** @type {LevelIntroScene|null} */
     this.levelIntro = null;
+    /** @type {IntermissionStatsScene|null} */
+    this.intermission = null;
+
+    /** @type {{ effect: WipeMelt, nextPhase: GamePhase }|null} */
+    this.wipe = null;
 
     /** @type {import('../game/MapLoader.js').DoomMap|null} */
     this.map = null;
@@ -63,6 +70,12 @@ export class Game {
 
   /** @param {import('../platform/input/KeyboardInput.js').KeyboardInput} input */
   tick(input) {
+    // Vanilla: Escape pops up the menu from most game states.
+    if (!this.menu.active && input.consumeJustPressed('Escape')) {
+      this.menu.open();
+      this.sound?.start('swtchn');
+    }
+
     switch (this.phase) {
       case 'title':
         this.titleScene.tick(input);
@@ -71,12 +84,31 @@ export class Game {
         break;
 
       case 'levelIntro':
-        if (this.levelIntro?.tick(input)) {
+        this.menu.tick(input);
+        if (!this.menu.active && this.levelIntro?.tick(input)) {
+          // Build the play session first so the wipe target is the actual 3D view.
           this.beginPlay();
+          this.startWipeTo('playing', () => this.renderPlay());
+        }
+        break;
+
+      case 'intermission':
+        this.menu.tick(input);
+        if (!this.menu.active && this.intermission?.tick(input)) {
+          this.intermission = null;
+          this.beginLevelIntro();
+          this.startWipeTo('levelIntro', () => {
+            this.renderer.initBuffer(SCREENWIDTH, SCREENHEIGHT);
+            this.levelIntro?.draw(this.renderer);
+          });
         }
         break;
 
       case 'playing':
+        this.menu.tick(input);
+        if (this.menu.active) {
+          break;
+        }
         if (this.playSession) {
           const player = this.playSession.player;
           const cmd = input.buildTicCmd();
@@ -94,6 +126,14 @@ export class Game {
               this.beginPlay();
             }
           }
+        }
+        break;
+
+      case 'wipe':
+        this.wipe?.effect.tick(1);
+        if (this.wipe?.effect.done) {
+          this.phase = this.wipe.nextPhase;
+          this.wipe = null;
         }
         break;
 
@@ -133,15 +173,46 @@ export class Game {
       case 'levelIntro':
         this.renderer.initBuffer(SCREENWIDTH, SCREENHEIGHT);
         this.levelIntro?.draw(this.renderer);
+        this.menu.draw(this.renderer);
+        break;
+
+      case 'intermission':
+        this.renderer.initBuffer(SCREENWIDTH, SCREENHEIGHT);
+        this.intermission?.draw(this.renderer);
+        this.menu.draw(this.renderer);
         break;
 
       case 'playing':
         this.renderPlay();
+        this.menu.draw(this.renderer);
+        break;
+
+      case 'wipe':
+        this.renderer.initBuffer(SCREENWIDTH, SCREENHEIGHT);
+        if (this.wipe) {
+          this.wipe.effect.draw(this.renderer.pixels);
+        }
         break;
 
       default:
         break;
     }
+  }
+
+  /**
+   * Create a melt wipe from the current screen to a target screen.
+   * @param {GamePhase} nextPhase
+   * @param {() => void} drawTarget
+   */
+  startWipeTo(nextPhase, drawTarget) {
+    const startPixels = new Uint8Array(this.renderer.pixels);
+
+    // Draw target once into the same framebuffer and snapshot it.
+    drawTarget();
+    const endPixels = new Uint8Array(this.renderer.pixels);
+
+    this.wipe = { effect: new WipeMelt(startPixels, endPixels), nextPhase };
+    this.phase = 'wipe';
   }
 
   renderPlay() {
@@ -235,6 +306,7 @@ export class Game {
    * @param {boolean} [secret=false]
    */
   completeLevel(secret = false) {
+    const stats = this.playSession?.endStats?.() ?? null;
     const next = nextMapName(this.mapName, secret);
     if (!next) {
       this.returnToTitle();
@@ -243,8 +315,19 @@ export class Game {
 
     this.mapName = next;
     this.map = null;
-    this.playSession = null;
     this.bspRenderer = null;
-    this.beginLevelIntro();
+
+    // Show a stats intermission before the next map intro.
+    this.intermission = new IntermissionStatsScene(this.wad, this.mapName, stats ?? {
+      kills: { killed: 0, total: 0 },
+      items: { found: 0, total: 0 },
+      secrets: { found: 0, total: 0 },
+      timeTics: 0,
+    }, this.sound);
+    this.playSession = null;
+    this.startWipeTo('intermission', () => {
+      this.renderer.initBuffer(SCREENWIDTH, SCREENHEIGHT);
+      this.intermission?.draw(this.renderer);
+    });
   }
 }
