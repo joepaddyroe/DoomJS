@@ -13,6 +13,8 @@ export class KeyboardInput {
   constructor() {
     /** @type {Set<string>} */
     this.keys = new Set();
+    /** @type {Set<string>} */
+    this.justPressed = new Set();
     this.speed = 1;
     this.turnSpeed = 1;
     this.enabled = false;
@@ -20,6 +22,9 @@ export class KeyboardInput {
     this._onKeyDown = (event) => {
       if (!this.enabled) {
         return;
+      }
+      if (!this.keys.has(event.code)) {
+        this.justPressed.add(event.code);
       }
       this.keys.add(event.code);
       if (this._isGameKey(event.code)) {
@@ -46,6 +51,20 @@ export class KeyboardInput {
     }
   }
 
+  /** Clear one-shot key presses at the end of each tic. */
+  endFrame() {
+    this.justPressed.clear();
+  }
+
+  /** @param {string} code */
+  consumeJustPressed(code) {
+    if (!this.enabled || !this.justPressed.has(code)) {
+      return false;
+    }
+    this.justPressed.delete(code);
+    return true;
+  }
+
   /** @param {string} code */
   _isGameKey(code) {
     return code.startsWith('Arrow')
@@ -53,6 +72,7 @@ export class KeyboardInput {
       || code === 'ControlLeft' || code === 'ControlRight'
       || code === 'Space'
       || code === 'KeyE' || code === 'Enter'
+      || code === 'KeyR'
       || (code >= 'Digit1' && code <= 'Digit7');
   }
 

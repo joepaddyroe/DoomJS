@@ -58,7 +58,10 @@ export class Player {
     this.ammo[AM_SHELL] = 50;
 
     this.refire = 0;
-    this.attackdown = true;
+    this.attackdown = false;
+    this.attacking = false;
+    this.dead = false;
+    this.deathTics = 0;
     this.usedown = false;
     this.extralight = 0;
     this.bob = 0;

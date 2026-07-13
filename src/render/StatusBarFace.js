@@ -9,10 +9,8 @@ import { PatchRenderer } from './PatchRenderer.js';
 const ST_NUMPAINFACES = 5;
 const ST_NUMSTRAIGHTFACES = 3;
 const ST_NUMTURNFACES = 2;
-const ST_NUMSPECIALFACES = 3;
-const ST_FACESTRIDE = ST_NUMSTRAIGHTFACES + ST_NUMTURNFACES + ST_NUMSPECIALFACES;
-const ST_NUMEXTRAFACES = 2;
-const ST_NUMFACES = ST_FACESTRIDE * ST_NUMPAINFACES + ST_NUMEXTRAFACES;
+const ST_FACESTRIDE = ST_NUMSTRAIGHTFACES + ST_NUMTURNFACES + 3;
+const ST_NUMFACES = ST_FACESTRIDE * ST_NUMPAINFACES + 2;
 
 const ST_TURNOFFSET = ST_NUMSTRAIGHTFACES;
 const ST_OUCHOFFSET = ST_TURNOFFSET + ST_NUMTURNFACES;
@@ -22,7 +20,7 @@ const ST_GODFACE = ST_NUMPAINFACES * ST_FACESTRIDE;
 const ST_DEADFACE = ST_GODFACE + 1;
 
 const ST_EVILGRINCOUNT = 2 * TICRATE;
-const ST_STRAIGHTFACECOUNT = TICRATE / 2;
+const ST_STRAIGHTFACECOUNT = (TICRATE / 4) | 0;
 const ST_TURNCOUNT = TICRATE;
 const ST_RAMPAGEDELAY = 2 * TICRATE;
 const ST_MUCHPAIN = 20;
@@ -56,16 +54,11 @@ export class StatusBarFace {
     this.faces[facenum++] = PatchRenderer.parsePatch(wad.readLumpByName('STFGOD0'));
     this.faces[facenum++] = PatchRenderer.parsePatch(wad.readLumpByName('STFDEAD0'));
 
-    if (this.faces.length !== ST_NUMFACES) {
-      throw new Error(`StatusBarFace: expected ${ST_NUMFACES} faces, got ${this.faces.length}`);
-    }
-
-    this.faceIndex = 0;
+    this.faceIndex = gameRandom() % ST_NUMSTRAIGHTFACES;
     this.faceCount = 0;
-    this.oldHealth = -1;
-    this.calcHealth = -1;
+    this.oldHealth = 100;
+    this.calcHealth = 100;
     this.painOffset = 0;
-    this.priority = 0;
     this.lastAttackDown = -1;
     /** @type {boolean[]} */
     this.oldWeaponsOwned = new Array(8).fill(false);
@@ -81,17 +74,21 @@ export class StatusBarFace {
     return this.painOffset;
   }
 
+  /** Pick a random straight-ahead face for the current health band. */
+  pickStraightFace(player) {
+    this.faceIndex = this.calcPainOffset(player) + (gameRandom() % ST_NUMSTRAIGHTFACES);
+    this.faceCount = ST_STRAIGHTFACECOUNT;
+  }
+
   /** @param {import('../game/Player.js').Player} player */
   tick(player) {
     let priority = 0;
 
-    if (priority < 10 && player.health <= 0) {
+    if (player.health <= 0) {
       priority = 9;
       this.faceIndex = ST_DEADFACE;
       this.faceCount = 1;
-    }
-
-    if (priority < 9 && player.bonuscount > 0) {
+    } else if (player.bonuscount > 0) {
       let evilGrin = false;
       for (let i = 0; i < player.weaponowned.length; i++) {
         if (this.oldWeaponsOwned[i] !== player.weaponowned[i]) {
@@ -108,7 +105,7 @@ export class StatusBarFace {
 
     if (priority < 8 && player.damagecount > 0 && player.attacker && player.attacker !== player.mo) {
       priority = 7;
-      if (this.oldHealth >= 0 && this.oldHealth - player.health > ST_MUCHPAIN) {
+      if (this.oldHealth - player.health > ST_MUCHPAIN) {
         this.faceCount = ST_TURNCOUNT;
         this.faceIndex = this.calcPainOffset(player) + ST_OUCHOFFSET;
       } else {
@@ -139,10 +136,8 @@ export class StatusBarFace {
           this.faceIndex += ST_TURNOFFSET + 1;
         }
       }
-    }
-
-    if (priority < 7 && player.damagecount > 0) {
-      if (this.oldHealth >= 0 && this.oldHealth - player.health > ST_MUCHPAIN) {
+    } else if (priority < 7 && player.damagecount > 0) {
+      if (this.oldHealth - player.health > ST_MUCHPAIN) {
         priority = 7;
         this.faceCount = ST_TURNCOUNT;
         this.faceIndex = this.calcPainOffset(player) + ST_OUCHOFFSET;
@@ -153,32 +148,30 @@ export class StatusBarFace {
       }
     }
 
-    if (priority < 6 && player.attacker && player.attacker !== player.mo) {
+    if (priority < 6 && player.attacking) {
       if (this.lastAttackDown === -1) {
         this.lastAttackDown = ST_RAMPAGEDELAY;
-      } else {
+      } else if (this.lastAttackDown > 0) {
         this.lastAttackDown--;
       }
       if (this.lastAttackDown === 0) {
         priority = 5;
         this.faceIndex = this.calcPainOffset(player) + ST_RAMPAGEOFFSET;
-        this.lastAttackDown = -1;
+        this.lastAttackDown = ST_RAMPAGEDELAY;
       }
     } else {
       this.lastAttackDown = -1;
     }
 
-    if (priority < 5 && (this.faceCount === 0 || priority > 0)) {
-      this.faceIndex = this.calcPainOffset(player) + (gameRandom() % ST_NUMSTRAIGHTFACES);
-      this.faceCount = ST_STRAIGHTFACECOUNT;
-    }
-
     if (player.health > 100) {
       this.faceIndex = ST_GODFACE;
+      this.faceCount = 1;
     }
 
-    this.priority = priority;
-    if (this.faceCount > 0) {
+    // st_stuff.c — idle straight faces when the timer expires
+    if (this.faceCount <= 0) {
+      this.pickStraightFace(player);
+    } else {
       this.faceCount--;
     }
 

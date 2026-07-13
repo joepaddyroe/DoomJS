@@ -33,6 +33,7 @@ export const SFX_LUMPS = {
   slop: 'DSSLOP',
   firsht: 'DSFIRSHT',
   firxpl: 'DSFIRXPL',
+  pldeth: 'DSPLDETH',
 };
 
 /** @type {readonly string[]} */

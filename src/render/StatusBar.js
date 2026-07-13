@@ -100,6 +100,14 @@ export class StatusBar {
   }
 
   /** @param {import('../game/Player.js').Player} player */
+  resetForPlayer(player) {
+    this.face.faceCount = 0;
+    this.face.oldHealth = player.health;
+    this.face.calcHealth = -1;
+    this.face.pickStraightFace(player);
+  }
+
+  /** @param {import('../game/Player.js').Player} player */
   tick(player) {
     this.face.tick(player);
     if (player.damagecount > 0) {

@@ -18,11 +18,12 @@ export class PlaySession {
    * @param {import('../game/Level.js').Level} level
    * @param {import('../game/Player.js').Player} player
    * @param {import('../audio/SoundSystem.js').SoundSystem|null} [sound]
+   * @param {number} [skill=3]
    */
-  constructor(level, player, sound = null) {
+  constructor(level, player, sound = null, skill = 3) {
     this.level = level;
     this.player = player;
-    this.things = spawnMapThings(level);
+    this.things = spawnMapThings(level, skill);
     this.pickups = new ItemPickup(sound);
     this.collision = new MapCollision(level, this.things, this.pickups, player.mo);
     this.collision.damagePlayer = player;
@@ -42,6 +43,10 @@ export class PlaySession {
   /** @param {import('../game/TicCmd.js').TicCmd} cmd */
   tick(cmd) {
     const { player, collision } = this;
+
+    if (player.dead) {
+      return;
+    }
 
     player.cmd = cmd;
     player.leveltime++;

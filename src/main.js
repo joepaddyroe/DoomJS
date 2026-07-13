@@ -1,51 +1,34 @@
+import { VIEWHEIGHT } from './core/renderConstants.js';
 import { SoftwareRenderer } from './render/SoftwareRenderer.js';
 import { CanvasVideoOutput } from './platform/video/CanvasVideoOutput.js';
-import { VIEWHEIGHT } from './core/renderConstants.js';
 import { WadFile } from './wad/WadFile.js';
 import { GameAssets } from './wad/GameAssets.js';
-import { MapLoader } from './game/MapLoader.js';
-import { Level } from './game/Level.js';
 import { TextureManager } from './render/TextureManager.js';
-import { BspRenderer } from './render/BspRenderer.js';
-import { Player } from './game/Player.js';
-import { PlaySession } from './app/PlaySession.js';
 import { GameLoop } from './app/GameLoop.js';
+import { Game } from './app/Game.js';
 import { KeyboardInput } from './platform/input/KeyboardInput.js';
 import { SpritePatches, PspriteRenderer } from './wad/SpritePatches.js';
 import { BillboardRenderer } from './render/BillboardRenderer.js';
 import { StatusBar } from './render/StatusBar.js';
-import { createTrigTables } from './math/tables.js';
 import { SoundSystem } from './audio/SoundSystem.js';
 import { createSoundDriver, soundDriverFromQuery } from './platform/sound/createSoundDriver.js';
 
 const WAD_PATHS = ['./doom.wad', './assets/doom.wad', '../doom.wad'];
-const MAP_NAME = 'E1M1';
-const BUILD_TAG = '2026-07-12-sound2';
+const BUILD_TAG = '2026-07-13-renderfix';
 const SOUND_DRIVER = soundDriverFromQuery();
 
 const canvas = document.getElementById('screen');
 const output = new CanvasVideoOutput(canvas);
 const renderer = new SoftwareRenderer();
 
-renderer.initBuffer(renderer.screenWidth, VIEWHEIGHT);
-
-/** @type {BspRenderer|null} */
-let bspRenderer = null;
-/** @type {PlaySession|null} */
-let playSession = null;
+/** @type {Game|null} */
+let game = null;
 /** @type {KeyboardInput|null} */
 let input = null;
 /** @type {GameLoop|null} */
 let gameLoop = null;
-/** @type {PspriteRenderer|null} */
-let pspriteRenderer = null;
-/** @type {BillboardRenderer|null} */
-let billboardRenderer = null;
-/** @type {StatusBar|null} */
-let statusBar = null;
 /** @type {SoundSystem|null} */
 let soundSystem = null;
-const trigTables = createTrigTables();
 
 async function loadWad() {
   let lastError = null;
@@ -64,29 +47,34 @@ async function start() {
     const wad = await loadWad();
     const assets = new GameAssets(wad);
     const textures = new TextureManager(wad);
-    const map = MapLoader.load(wad, MAP_NAME);
-    const level = Level.fromMap(map, textures, map.blockmap);
-    const playerStart = MapLoader.findPlayerStart(map);
 
     renderer.setColormaps(assets.colormaps);
+    renderer.initBuffer(renderer.screenWidth, VIEWHEIGHT);
     output.setPalette(assets.palette);
 
-    bspRenderer = new BspRenderer(level, textures, renderer, assets.colormaps);
     const spritePatches = new SpritePatches(wad);
-    pspriteRenderer = new PspriteRenderer(renderer, spritePatches, assets.colormaps);
-    billboardRenderer = new BillboardRenderer(renderer, spritePatches, assets.colormaps);
-    statusBar = new StatusBar(wad);
+    const pspriteRenderer = new PspriteRenderer(renderer, spritePatches, assets.colormaps);
+    const billboardRenderer = new BillboardRenderer(renderer, spritePatches, assets.colormaps);
+    const statusBar = new StatusBar(wad);
 
     soundSystem = new SoundSystem(createSoundDriver(SOUND_DRIVER));
     soundSystem.load(wad);
 
-    if (!playerStart) {
-      throw new Error('No player start found on map');
-    }
+    game = new Game({
+      wad,
+      assets,
+      textures,
+      renderer,
+      spritePatches,
+      billboardRenderer,
+      pspriteRenderer,
+      statusBar,
+      sound: soundSystem,
+      mapName: 'E1M1',
+    });
 
-    const player = Player.fromStart(playerStart, level);
-    playSession = new PlaySession(level, player, soundSystem);
     input = new KeyboardInput();
+    input.setEnabled(true);
 
     canvas.addEventListener('click', () => {
       input.setEnabled(true);
@@ -95,60 +83,27 @@ async function start() {
     });
     canvas.setAttribute('tabindex', '0');
 
-    bspRenderer.renderView(playSession.view());
+    renderer.clear(0x70);
+    game.frame(input);
     output.present(renderer.pixels);
 
-    const pos = player.mapPosition();
     console.log(
-      `DoomJS ${BUILD_TAG} — ${MAP_NAME} at (${pos.x}, ${pos.y}). `
+      `DoomJS ${BUILD_TAG} — Select skill (1-4), Enter to start. `
       + `Sound: ${soundSystem?.driverId ?? 'none'} (?sound=webaudio|howler|null). `
-      + `${output.gameWidth}×${output.gameHeight} @ ${output.pixelScale}× (window ${output.windowWidth}×${output.windowHeight}). Click canvas, WASD + arrows, E use, 1/2/3 weapons, Ctrl/Space fire.`,
+      + `${output.gameWidth}×${output.gameHeight} @ ${output.pixelScale}×.`,
     );
 
     gameLoop = new GameLoop({
       onTick: () => {
-        if (!playSession || !input) {
-          return;
+        if (game && input) {
+          game.tick(input);
         }
-        playSession.tick(input.buildTicCmd());
-        statusBar?.tick(playSession.player);
       },
       onFrame: () => {
-        if (!bspRenderer || !playSession) {
-          return;
+        if (game && input) {
+          game.frame(input);
+          output.present(renderer.pixels);
         }
-        bspRenderer.renderView(playSession.view());
-        if (billboardRenderer) {
-          const { drawSegs, drawSegCount } = bspRenderer.ctx;
-          billboardRenderer.drawThings(
-            [...playSession.things, ...playSession.missiles.missiles],
-            playSession.view(),
-            bspRenderer.ctx.viewSetup,
-            trigTables,
-            drawSegs,
-            drawSegCount,
-            bspRenderer.walls,
-            playSession.player.extralight,
-          );
-          billboardRenderer.drawPuffs(
-            playSession.puffs.puffs,
-            playSession.view(),
-            bspRenderer.ctx.viewSetup,
-            trigTables,
-            drawSegs,
-            drawSegCount,
-            bspRenderer.walls,
-            playSession.player.extralight,
-          );
-        }
-        bspRenderer.walls.renderAllMaskedSegs();
-        if (pspriteRenderer) {
-          pspriteRenderer.draw(playSession.player, playSession.player.extralight);
-        }
-        if (statusBar) {
-          statusBar.draw(renderer, playSession.player);
-        }
-        output.present(renderer.pixels);
       },
     });
     gameLoop.start();
@@ -162,42 +117,12 @@ async function start() {
 
 window.addEventListener('resize', () => {
   output.resize(window.innerWidth, window.innerHeight);
-  if (playSession && bspRenderer) {
-    bspRenderer.renderView(playSession.view());
-    if (billboardRenderer) {
-      const { drawSegs, drawSegCount } = bspRenderer.ctx;
-      billboardRenderer.drawThings(
-        [...playSession.things, ...playSession.missiles.missiles],
-        playSession.view(),
-        bspRenderer.ctx.viewSetup,
-        trigTables,
-        drawSegs,
-        drawSegCount,
-        bspRenderer.walls,
-        playSession.player.extralight,
-      );
-      billboardRenderer.drawPuffs(
-        playSession.puffs.puffs,
-        playSession.view(),
-        bspRenderer.ctx.viewSetup,
-        trigTables,
-        drawSegs,
-        drawSegCount,
-        bspRenderer.walls,
-        playSession.player.extralight,
-      );
-    }
-    bspRenderer.walls.renderAllMaskedSegs();
-    if (pspriteRenderer) {
-      pspriteRenderer.draw(playSession.player, playSession.player.extralight);
-    }
-    if (statusBar) {
-      statusBar.draw(renderer, playSession.player);
-    }
+  if (game && input) {
+    game.frame(input);
     output.present(renderer.pixels);
   }
 });
 
 start();
 
-export { renderer, output, bspRenderer, playSession };
+export { renderer, output, game };
