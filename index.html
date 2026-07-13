@@ -33,6 +33,69 @@
       outline: none;
       background: #000;
     }
+
+    #wad-loader {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.92);
+      color: #c4b896;
+      font-family: system-ui, sans-serif;
+    }
+
+    .wad-loader-panel {
+      max-width: 28rem;
+      padding: 2rem;
+      text-align: center;
+      border: 2px solid #5c4a32;
+      background: #1a1208;
+    }
+
+    .wad-loader-panel h1 {
+      margin-bottom: 1rem;
+      font-size: 1.75rem;
+      color: #e8dcc0;
+      letter-spacing: 0.08em;
+    }
+
+    .wad-loader-lead {
+      margin-bottom: 0.75rem;
+      font-size: 1.05rem;
+    }
+
+    .wad-loader-note {
+      margin-bottom: 1.5rem;
+      font-size: 0.875rem;
+      line-height: 1.5;
+      color: #9a8868;
+    }
+
+    .wad-loader-note code {
+      color: #e8dcc0;
+    }
+
+    .wad-loader-button {
+      display: inline-block;
+      padding: 0.65rem 1.25rem;
+      border: 1px solid #8b7355;
+      background: #3d2e1a;
+      color: #e8dcc0;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+
+    .wad-loader-button:hover {
+      background: #4d3a22;
+    }
+
+    .wad-loader-error {
+      margin-top: 1rem;
+      color: #e07070;
+      font-size: 0.875rem;
+    }
   </style>
 </head>
 <body>

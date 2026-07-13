@@ -13,6 +13,7 @@ import { StatusBar } from './render/StatusBar.js';
 import { SoundSystem } from './audio/SoundSystem.js';
 import { MusicSystem } from './audio/MusicSystem.js';
 import { createSoundDriver, soundDriverFromQuery } from './platform/sound/createSoundDriver.js';
+import { promptForWadFile } from './ui/WadLoaderPrompt.js';
 
 const WAD_PATHS = ['./doom.wad', './assets/doom.wad', '../doom.wad'];
 const BUILD_TAG = '2026-07-13-renderfix';
@@ -33,21 +34,34 @@ let soundSystem = null;
 /** @type {MusicSystem|null} */
 let musicSystem = null;
 
-async function loadWad() {
+async function loadWadFromPaths() {
   let lastError = null;
   for (const path of WAD_PATHS) {
     try {
-      return await WadFile.load(path);
+      const response = await fetch(path);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      return await WadFile.load(await response.arrayBuffer());
     } catch (error) {
       lastError = error;
     }
   }
-  throw lastError ?? new Error('Could not load doom.wad');
+  throw lastError ?? new Error('Could not load doom.wad from project folder');
+}
+
+/** Try local paths first; fall back to a file picker (GitHub Pages). */
+async function acquireWad() {
+  try {
+    return await loadWadFromPaths();
+  } catch {
+    return promptForWadFile();
+  }
 }
 
 async function start() {
   try {
-    const wad = await loadWad();
+    const wad = await acquireWad();
     const assets = new GameAssets(wad);
     const textures = new TextureManager(wad);
 
