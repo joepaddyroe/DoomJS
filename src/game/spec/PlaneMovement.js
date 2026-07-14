@@ -1,6 +1,22 @@
 /** @typedef {'ok' | 'pastdest' | 'crushed'} MoveResult */
 
 /**
+ * Move a plane and carry things in the sector (p_floor.c — T_MovePlane + P_ChangeSector).
+ * @param {import('../MapCollision.js').MapCollision|null} collision
+ * @param {import('../Level.js').LevelSector} sector
+ * @param {number} speed
+ * @param {number} dest
+ * @param {0 | 1} floorOrCeiling
+ * @param {number} direction
+ * @returns {MoveResult}
+ */
+export function movePlaneWithSectorChange(collision, sector, speed, dest, floorOrCeiling, direction) {
+  const res = movePlane(sector, speed, dest, floorOrCeiling, direction);
+  collision?.changeSector(sector);
+  return res;
+}
+
+/**
  * Move a floor or ceiling plane (p_floor.c — T_MovePlane).
  * Crushing is omitted for now — returns ok while moving, pastdest at destination.
  *

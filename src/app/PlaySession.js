@@ -46,6 +46,7 @@ export class PlaySession {
       textures: options.textures,
       switchPairs: options.textures ? buildSwitchPairs(options.textures) : new Map(),
       sound,
+      collision: this.collision,
       onExitLevel: options.onExitLevel,
       playerMo: player.mo,
     };
@@ -80,13 +81,15 @@ export class PlaySession {
       PlayerMovement.move(player, cmd);
     }
 
+    // Floor/plat/door thinkers before movement (p_tick.c — P_RunThinkers before P_MobjThinker).
+    this.thinkers.runAll();
+
     collision.xyMovement(player.mo, cmd);
     collision.zMovement(player);
     PlayerMovement.calcHeight(player);
     tickPlayerPowers(player);
     thinkPlayerSpecialSector(player);
     thinkUse(player, this.specCtx, collision);
-    this.thinkers.runAll();
     thinkWeaponChange(player);
     this.psprites.think(player);
     tickMonsters(this.things, {

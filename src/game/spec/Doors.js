@@ -1,6 +1,6 @@
 import { FRACUNIT } from '../../core/renderConstants.js';
 import { VDOORSPEED, VDOORWAIT } from '../../core/gameConstants.js';
-import { movePlane } from './PlaneMovement.js';
+import { movePlaneWithSectorChange } from './PlaneMovement.js';
 import {
   doorSectorForUseLine,
   findLowestCeilingSurrounding,
@@ -30,6 +30,7 @@ export const VLDoorType = {
  * @property {import('../../render/TextureManager.js').TextureManager} textures
  * @property {Map<number, number>} switchPairs
  * @property {import('../../audio/SoundSystem.js').SoundSystem|null} [sound]
+ * @property {import('../MapCollision.js').MapCollision|null} [collision]
  * @property {(secret?: boolean) => void} [onExitLevel]
  * @property {import('../Mobj.js').Mobj|null} [playerMo]
  */
@@ -111,7 +112,7 @@ export function tickVerticalDoor(door, ctx) {
         playDoorSound(ctx.sound, 'doropn');
         break;
       }
-      const res = movePlane(sec, door.speed, sec.floorHeight, 1, -1);
+      const res = movePlaneWithSectorChange(ctx.collision, sec, door.speed, sec.floorHeight, 1, -1);
       if (res === 'pastdest') {
         if (door.type === VLDoorType.blazeRaise
           || door.type === VLDoorType.blazeClose
@@ -128,7 +129,7 @@ export function tickVerticalDoor(door, ctx) {
     }
 
     case 1: {
-      const res = movePlane(sec, door.speed, door.topheight, 1, 1);
+      const res = movePlaneWithSectorChange(ctx.collision, sec, door.speed, door.topheight, 1, 1);
       if (res === 'pastdest') {
         if (door.type === VLDoorType.blazeRaise || door.type === VLDoorType.normal) {
           door.direction = 0;

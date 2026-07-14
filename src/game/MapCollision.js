@@ -1297,6 +1297,74 @@ export class MapCollision {
     }
   }
 
+  /** @param {import('./Mobj.js').Mobj} thing */
+  thingHeightClip(thing) {
+    if (thing.removed) {
+      return true;
+    }
+
+    const onfloor = thing.z === thing.floorz;
+
+    if (!this.checkPosition(thing, thing.x, thing.y)) {
+      return false;
+    }
+
+    thing.subsector = this.level.findSubsector(thing.x, thing.y);
+    thing.floorz = this.tmfloorz;
+    thing.ceilingz = this.tmceilingz;
+
+    if (onfloor) {
+      if (thing.playerObject && thing.z < thing.floorz) {
+        thing.playerObject.viewheight -= thing.floorz - thing.z;
+        thing.playerObject.deltaviewheight =
+          (thing.playerObject.viewheightBase - thing.playerObject.viewheight) >> 3;
+      }
+      thing.z = thing.floorz;
+    } else if (thing.z + thing.height > thing.ceilingz) {
+      thing.z = thing.ceilingz - thing.height;
+    }
+
+    return thing.ceilingz - thing.floorz >= thing.height;
+  }
+
+  /**
+   * Adjust things after a sector plane moves (p_map.c — P_ChangeSector).
+   * @param {import('./Level.js').LevelSector} sector
+   * @returns {boolean} true if something could not fit
+   */
+  changeSector(sector) {
+    let nofit = false;
+
+    /** @type {import('./Mobj.js').Mobj[]} */
+    const mobjs = [...this.mapThings];
+    if (this.playerMo) {
+      mobjs.push(this.playerMo);
+    }
+    for (const missile of this.missiles) {
+      if (!missile.removed) {
+        mobjs.push(missile);
+      }
+    }
+
+    for (const thing of mobjs) {
+      if (thing.removed) {
+        continue;
+      }
+
+      const subsector = this.level.findSubsector(thing.x, thing.y);
+      thing.subsector = subsector;
+      if (subsector.sector !== sector) {
+        continue;
+      }
+
+      if (!this.thingHeightClip(thing)) {
+        nofit = true;
+      }
+    }
+
+    return nofit;
+  }
+
   /** @param {import('./Player.js').Player} player */
   zMovement(player) {
     const mo = player.mo;

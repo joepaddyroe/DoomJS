@@ -1,6 +1,6 @@
 import { FRACUNIT } from '../../core/renderConstants.js';
 import { PLATSPEED, PLATWAIT } from '../../core/gameConstants.js';
-import { movePlane } from './PlaneMovement.js';
+import { movePlaneWithSectorChange } from './PlaneMovement.js';
 import { findSectorFromLineTag } from './SectorQuery.js';
 
 /** @typedef {import('./Doors.js').SpecContext} SpecContext */
@@ -44,7 +44,14 @@ export class PlatThinker {
       }
 
       const target = this.direction > 0 ? this.high : this.low;
-      const res = movePlane(this.sector, this.speed, target, 0, this.direction);
+      const res = movePlaneWithSectorChange(
+        this.context.collision,
+        this.sector,
+        this.speed,
+        target,
+        0,
+        this.direction,
+      );
       if (res === 'pastdest') {
         if (this.direction < 0) {
           this.direction = 1;
@@ -57,7 +64,14 @@ export class PlatThinker {
       return;
     }
 
-    const res = movePlane(this.sector, this.speed, this.high, 0, this.direction);
+    const res = movePlaneWithSectorChange(
+      this.context.collision,
+      this.sector,
+      this.speed,
+      this.high,
+      0,
+      this.direction,
+    );
     if (res === 'pastdest') {
       this.sector.specialdata = null;
       this.context.thinkers.remove(this);

@@ -1,6 +1,6 @@
 import { FLOORSPEED } from '../../core/gameConstants.js';
 import { FRACUNIT } from '../../core/renderConstants.js';
-import { movePlane } from './PlaneMovement.js';
+import { movePlaneWithSectorChange } from './PlaneMovement.js';
 import {
   findLowestCeilingSurrounding,
   findLowestFloorSurrounding,
@@ -32,7 +32,14 @@ export class FloorMoveThinker {
       return;
     }
 
-    const res = movePlane(this.sector, this.speed, this.dest, 0, this.direction);
+    const res = movePlaneWithSectorChange(
+      this.context.collision,
+      this.sector,
+      this.speed,
+      this.dest,
+      0,
+      this.direction,
+    );
     if (res === 'pastdest') {
       this.sector.specialdata = null;
       this.context.thinkers.remove(this);
