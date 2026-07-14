@@ -18,6 +18,8 @@ import {
   MAXMOVE,
   MAXSPECIALCROSS,
   MAXSTEPHEIGHT,
+  GRAVITY,
+  FLOATSPEED,
   MF_DROPOFF,
   MF_FLOAT,
   MF_MISSILE,
@@ -43,7 +45,8 @@ import {
 import { ML_TWOSIDED } from './mapFormat.js';
 import { createTrigTables } from '../math/tables.js';
 import { pointToAngle } from '../math/viewMath.js';
-import { MF_PICKUP, MF_SHOOTABLE, MF_SOLID, MF_SPECIAL } from './mobjFlags.js';
+import { MF_NOGRAVITY, MF_PICKUP, MF_SHOOTABLE, MF_SOLID, MF_SPECIAL } from './mobjFlags.js';
+import { approxDistance } from './monster/Sight.js';
 import { gameRandom } from './GameRandom.js';
 import { damageMobj } from './monster/MobjCombat.js';
 import { crossSpecialLine } from './spec/CrossSpecialLine.js';
@@ -1275,25 +1278,63 @@ export class MapCollision {
     mo.subsector = subsector;
     mo.floorz = subsector.sector.floorHeight;
     mo.ceilingz = subsector.sector.ceilingHeight;
+    this.mobjZMovement(mo);
+  }
+
+  /**
+   * Vertical movement (p_mobj.c — P_ZMovement).
+   * @param {import('./Mobj.js').Mobj} mo
+   */
+  mobjZMovement(mo) {
+    const player = mo.playerObject ?? null;
+
+    if (player && mo.z < mo.floorz) {
+      player.viewheight -= mo.floorz - mo.z;
+      player.deltaviewheight = (player.viewheightBase - player.viewheight) >> 3;
+    }
 
     mo.z += mo.momz;
 
-    if (mo.z <= mo.floorz) {
-      mo.z = mo.floorz;
-      if (mo.flags & MF_MISSILE) {
-        if (this.onMissileExplode) {
-          this.onMissileExplode(mo);
-        }
+    if ((mo.flags & MF_FLOAT) && mo.target) {
+      const dist = approxDistance(mo.x - mo.target.x, mo.y - mo.target.y);
+      const delta = (mo.target.z + (mo.height >> 1)) - mo.z;
+
+      if (delta < 0 && dist < -(delta * 3)) {
+        mo.z -= FLOATSPEED;
+      } else if (delta > 0 && dist < delta * 3) {
+        mo.z += FLOATSPEED;
       }
-      return;
+    }
+
+    if (mo.z <= mo.floorz) {
+      if (mo.momz < 0) {
+        if (player && mo.momz < -GRAVITY * 8) {
+          player.deltaviewheight = mo.momz >> 3;
+          this.specCtx?.sound?.start('oof');
+        }
+        mo.momz = 0;
+      }
+      mo.z = mo.floorz;
+
+      if ((mo.flags & MF_MISSILE) && !(mo.flags & MF_NOCLIP)) {
+        this.onMissileExplode?.(mo);
+      }
+    } else if (!(mo.flags & MF_NOGRAVITY)) {
+      if (mo.momz === 0) {
+        mo.momz = -GRAVITY * 2;
+      } else {
+        mo.momz -= GRAVITY;
+      }
     }
 
     if (mo.z + mo.height > mo.ceilingz) {
+      if (mo.momz > 0) {
+        mo.momz = 0;
+      }
       mo.z = mo.ceilingz - mo.height;
-      if (mo.flags & MF_MISSILE) {
-        if (this.onMissileExplode) {
-          this.onMissileExplode(mo);
-        }
+
+      if ((mo.flags & MF_MISSILE) && !(mo.flags & MF_NOCLIP)) {
+        this.onMissileExplode?.(mo);
       }
     }
   }
@@ -1368,13 +1409,6 @@ export class MapCollision {
 
   /** @param {import('./Player.js').Player} player */
   zMovement(player) {
-    const mo = player.mo;
-    if (mo.z < mo.floorz) {
-      player.viewheight -= mo.floorz - mo.z;
-      player.deltaviewheight = (player.viewheightBase - player.viewheight) >> 3;
-    }
-
-    mo.z = mo.floorz;
-    mo.momz = 0;
+    this.mobjZMovement(player.mo);
   }
 }

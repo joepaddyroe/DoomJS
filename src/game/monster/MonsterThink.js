@@ -304,5 +304,9 @@ export function tickMonsters(things, ctx) {
     if (thing.momx || thing.momy) {
       ctx.collision.xyMovement(thing, null);
     }
+
+    if (thing.z !== thing.floorz || thing.momz) {
+      ctx.collision.mobjZMovement(thing);
+    }
   }
 }

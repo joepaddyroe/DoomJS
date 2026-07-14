@@ -27,6 +27,12 @@ export const STOPSPEED = 0x1000;
 /** Max step height (p_map.c). */
 export const MAXSTEPHEIGHT = 24 * FRACUNIT;
 
+/** Vertical gravity per tic (p_local.h — GRAVITY). */
+export const GRAVITY = FRACUNIT;
+
+/** Flying monster hover speed (p_local.h — FLOATSPEED). */
+export const FLOATSPEED = FRACUNIT * 4;
+
 /** Blockmap cell size (p_local.h). */
 export const MAPBLOCKSHIFT = FRACBITS + 7;
 export const MAPBLOCKSIZE = 1 << MAPBLOCKSHIFT;

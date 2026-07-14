@@ -38,12 +38,7 @@ export function enemyMove(actor, collision) {
   const tryx = actor.x + arch.speed * XSPEED[actor.movedir];
   const tryy = actor.y + arch.speed * YSPEED[actor.movedir];
 
-  if (!collision.tryMove(actor, tryx, tryy)) {
-    return false;
-  }
-
-  actor.z = actor.floorz;
-  return true;
+  return collision.tryMove(actor, tryx, tryy);
 }
 
 /**
