@@ -297,28 +297,6 @@ export class WallDrawer {
     this.ctx.drawSegCount++;
   }
 
-  /**
-   * @param {import('./ClipSegList.js').VisPlane|null} plane
-   * @param {number} x
-   * @param {number} top
-   * @param {number} bottom
-   */
-  updatePlaneColumn(plane, x, top, bottom) {
-    top = Math.max(0, top);
-    bottom = Math.min(this.ctx.viewHeight - 1, bottom);
-    if (!plane || top > bottom) {
-      return;
-    }
-    plane.top[x] = top;
-    plane.bottom[x] = bottom;
-    if (x < plane.minx) {
-      plane.minx = x;
-    }
-    if (x > plane.maxx) {
-      plane.maxx = x;
-    }
-  }
-
   renderSegLoop(
     segStart, rwStopX, rwScale, rwScaleStep,
     worldTop, worldBottom, backsector,
@@ -471,29 +449,8 @@ export class WallDrawer {
         }
 
         if (maskedTexture && maskedTextureCol && segTextured) {
+          // Save column for deferred masked midtexture pass (r_segs.c).
           maskedTextureCol[rwX - segStart] = textureColumn;
-
-          // Same-sector fences skip markFloor/markCeiling; refresh spans for this column only.
-          if (!markCeiling) {
-            let top = this.ctx.ceilingClip[rwX] + 1;
-            let bottom = yl - 1;
-            if (bottom >= this.ctx.floorClip[rwX]) {
-              bottom = this.ctx.floorClip[rwX] - 1;
-            }
-            this.updatePlaneColumn(this.planes.ceilingPlane, rwX, top, bottom);
-          }
-
-          if (!markFloor) {
-            let top = yh + 1;
-            let bottom = this.ctx.floorClip[rwX] - 1;
-            if (top <= this.ctx.ceilingClip[rwX]) {
-              top = this.ctx.ceilingClip[rwX] + 1;
-            }
-            this.updatePlaneColumn(this.planes.floorPlane, rwX, top, bottom);
-          }
-
-          this.ctx.ceilingClip[rwX] = yl - 1;
-          this.ctx.floorClip[rwX] = yh + 1;
         }
       }
 
