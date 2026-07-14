@@ -16,7 +16,44 @@ If you are picking up this project with no chat history:
 4. Respect **§2–3** (SOLID + layers) before editing.
 5. After completing work, update **§12**, **§7**, and **§15 Changelog**.
 
-**Current maturity (2026-07-14):** Playable **single-player Doom 1 slice** — E1M1-style maps run with software rendering, all 8 weapons, 3 monster types, core doors/floors/plats, menus, music/SFX, wipes, JSON saves. **Not** a full vanilla port yet.
+**Current maturity (2026-07-14):** Playable **single-player Doom 1 slice** — E1M1-style maps run with software rendering, all 8 weapons, 3 monster types, core doors/floors/plats, menus, music/SFX, wipes, JSON saves, intermission stats. **Corpse physics / sprite placement** aligned with vanilla (`P_MobjThinker` order, immediate death state). **Not** a full vanilla port yet.
+
+### Recent progress (2026-07-14)
+
+| Area | Done |
+|------|------|
+| **Corpse hover** | Reverted non-vanilla collision hacks; fixed `momz` init, immediate `killMobj` death state, monster tick order (XY → Z → state); optional `[corpse]` console debug (`CorpseDebug.js`) |
+| **Rendering polish** | Low-detail sprites; view border flats + `BRDR_*` bevel (`ViewBorder.js`); screen-size / detail menu wired |
+| **UI / flow** | Wipe-melt transitions (menu ↔ game ↔ intermission); intermission stats with live kill/item/secret counts + WI patches |
+| **Menu** | In-game pause/responder closer to vanilla; save/load slots wired via `Game.setSaveSystem` |
+| **Audio** | `MusParser.js` for MUS → OPL playback |
+| **Debug** | `localStorage.setItem('doomjs-corpse-debug','0')` disables corpse Z logging |
+
+### Remaining tasks (priority order)
+
+Use **§13** for file-level detail. Summary of what is **not** done yet:
+
+| Priority | Task | Status |
+|----------|------|--------|
+| **P0** | Key-locked doors (`player.cards` checks) | Not started |
+| **P0** | Teleports (`p_telept.c`) | Not started |
+| **P1** | Power-ups — light amp / berserk fist damage / full palette effects | Partial |
+| **P1** | Shotgun guy + demon monsters | Not started |
+| **P2** | Crushing ceilings | Not started |
+| **P2** | Raise floor / stairs specials | Not started |
+| **P2** | Spectre spawn (fuzz draw exists) | Not started |
+| **P3** | Automap polish (pan/zoom/follow keys) | Partial (overlay only) |
+| **P3** | Save completeness (thinkers, sectors, RNG, line state) | Partial (JSON subset) |
+| **P3** | E2–E4 map names + `MAP02+` progression | Partial (E1 only) |
+| **P3** | Per-episode skies (SKY2/SKY3) | Not started |
+| **P4** | Remaining Doom 1 monsters (cacodemon, baron, …) | Not started |
+| **P4** | Cheats (`m_cheat.c`) | Not started |
+| **P4** | Finale screens (`f_finale.c`) | Not started |
+| **P4** | Center-screen pickup messages (`hu_stuff.c`) | Not started |
+| **P4** | Intermission par times + animated map walk | Not started |
+| **P5** | Doom II `MAP##` progression | Not started |
+| **P5** | Nightmare mode (fast + respawn) | Not started |
+| **—** | Multiplayer, demos, DeHackEd | Explicit non-goals |
 
 ---
 
@@ -112,6 +149,7 @@ DoomJS/
 │   │   ├── PlayerPowers.js, ItemPickup.js, Hitscan.js, Mobj.js
 │   │   ├── spec/               # Doors, FloorMovers, Plats, specials
 │   │   ├── weapons/            # Psprites.js, weaponConstants.js
+│   │   ├── debug/              # CorpseDebug.js (optional Z diagnostics)
 │   │   └── monster/            # AI, missiles, combat (3 types only)
 │   ├── render/                 # SoftwareRenderer, BSP, walls, planes, sprites, HUD
 │   ├── audio/                  # SoundSystem, MusicSystem, OPL backend
@@ -172,8 +210,9 @@ Legend: `[x]` done · `[~]` partial · `[ ]` not started
 - [x] Floors/ceilings (`PlaneDrawer`), sky (single texture)
 - [x] Sprites + psprites (`BillboardRenderer`, `SpritePatches`)
 - [x] Palette / colormap / distance lighting / weapon `extralight`
-- [x] Low detail wired (`ViewSize.js`, menu detail → `drawColumnLow` / `drawSpanLow`)
+- [x] Low detail wired (`ViewSize.js`, menu detail → walls, spans, **sprites**)
 - [x] Screen-size menu wired (`ViewSize.js`, `Game.applyViewLayout`)
+- [x] View border flats + bevel patches (`ViewBorder.js`, `R_DrawViewBorder`)
 - [x] Fuzz draw for `MF_SHADOW` sprites (`PatchRenderer.drawPatchScaledFuzz`, invis power)
 - [ ] Per-episode sky (`r_sky.c` SKY1/2/3)
 
@@ -181,6 +220,7 @@ Legend: `[x]` done · `[~]` partial · `[ ]` not started
 - [x] `Mobj`, player spawn, `TicCmd`
 - [x] Player movement (`PlayerMovement.js` — thrust, bob, view height)
 - [x] Collision (`MapCollision.js` — tryMove, slide, hitscan, gravity/Z movement)
+- [x] Corpse physics aligned with vanilla (`killMobj` immediate state, `momz`, `P_MobjThinker` tick order)
 - [x] All 8 weapons (`Psprites.js`, `weaponConstants.js`, player missiles)
 - [x] Item pickup (`ItemPickup.js`) — weapons, ammo, health, armor, keys, backpack
 - [~] Player powers — invuln/berserk/invis/automap work; light amp (`pw_infrared`) not yet
@@ -199,15 +239,15 @@ Legend: `[x]` done · `[~]` partial · `[ ]` not started
 
 ### Phase 5 — UI / meta
 - [x] Status bar (`StatusBar.js`, `StatusBarFace.js`)
-- [x] Menus (`MenuController.js`) — main, episode, skills, options, load/save
-- [x] Title, level intro (E#M#), wipe melts
-- [~] Intermission — stats + WI patches; **no par times**, no animated map walk
+- [x] Menus (`MenuController.js`) — main, episode, skills, options, load/save slots
+- [x] Title, level intro (E#M#), wipe melts (`WipeMelt.js` — menu/game/intermission)
+- [~] Intermission — live stats + WI patches + count-up; **no par times**, no animated map walk
 - [ ] Finale screens (`f_finale.c`)
 - [ ] Center-screen pickup messages (`hu_stuff.c`)
 
 ### Phase 6 — Audio
 - [x] SFX (`SoundSystem`, `SfxRegistry`, WAD `DS*` lumps)
-- [x] Music (MUS → OPL3 via `MusParser`, `OplMusicBackend`)
+- [x] Music (MUS → OPL3 via `MusParser.js`, `OplMusicBackend`)
 
 ### Phase 7 — Persistence & progression
 - [~] Save/load — JSON in `localStorage` (`SaveGameStore.js`); **not** vanilla `p_saveg` binary
@@ -231,13 +271,13 @@ Last audited: **2026-07-14** against `linuxdoom-1.10`. Re-audit after major feat
 ### 12.1 Subsystem maturity
 
 ```
-Rendering (3D)     █████████░  ~95%   episode skies, automap polish, border patches
+Rendering (3D)     █████████░  ~95%   episode skies, automap polish
 Player / weapons   ████████░░  ~80%   powers, nightmare, attack sprite missing
-Monsters           ██░░░░░░░░  ~15%   3 types vs full Doom 1 bestiary
+Monsters           ██░░░░░░░░  ~15%   3 types; corpse physics now vanilla-faithful
 Map specials       ████░░░░░░  ~40%   no keys/teleport/crush/lights/stairs
 Items / inventory  ███████░░░  ~70%   pickups yes; power effects mostly stub
 Audio              ████████░░  ~80%   grows with content
-UI / menus         ████████░░  ~80%   no finale; partial intermission
+UI / menus         ████████░░  ~85%   wipes + intermission stats; no finale
 Saves              ████░░░░░░  ~40%   JSON subset of vanilla save state
 Progression        █████░░░░░  ~50%   E1 ok; E2–4 / Doom II weak
 Multi / demos      ░░░░░░░░░░   0%
@@ -250,15 +290,17 @@ Cheats             ░░░░░░░░░░   0%
 |------|-----------|-------|
 | Map load | `MapLoader.js`, `Level.js` | Standard map lumps |
 | Collision / movement | `MapCollision.js` | Slide, steps, drop-off, gravity, friction, hitscan |
+| Corpse / mobj think | `MonsterThink.js`, `MobjCombat.js` | `P_MobjThinker` order; immediate death state; optional `CorpseDebug.js` |
 | Player weapons | `Psprites.js`, `weaponConstants.js`, `Hitscan.js`, `MissileManager.js` | All 8 weapons |
-| Software renderer | `BspRenderer.js`, `WallDrawer.js`, `PlaneDrawer.js`, `BillboardRenderer.js` | Core 3D |
+| Software renderer | `BspRenderer.js`, `WallDrawer.js`, `PlaneDrawer.js`, `BillboardRenderer.js` | Core 3D; low-detail sprites; view border |
 | Status bar | `StatusBar.js`, `StatusBarFace.js` | Arms widget uses `weaponowned[i+1]` for slot `i` (STGNUM2 = pistol, etc.) |
 | Pickups (touch) | `ItemPickup.js`, `mobjInfo.js` | Broad catalog |
 | Thinkers (subset) | `Doors.js`, `FloorMovers.js`, `Plats.js`, `ThinkerList.js` | Run before movement in `PlaySession.js` |
 | Platform carry | `changeSector` / `thingHeightClip` in `MapCollision.js` | Player moves with lifts |
-| Game loop | `GameLoop.js`, `PlaySession.js` | 35 Hz; order: input → thinkers → XY → Z → weapons → monsters |
+| Game loop | `GameLoop.js`, `PlaySession.js` | 35 Hz; thinkers → player move → weapons → monster XY/Z/state |
 | Audio | `SoundSystem.js`, `MusicSystem.js` | SFX + OPL music |
-| Menus / flow | `Game.js`, `MenuController.js`, `WipeMelt.js` | Title → menu → play → intermission |
+| Menus / flow | `Game.js`, `MenuController.js`, `WipeMelt.js` | Title → menu → play → intermission (wipe transitions) |
+| Intermission | `IntermissionStatsScene.js`, `PlaySession.endStats()` | Kill/item/secret counts from live play state |
 
 ### 12.3 Partial — known gaps
 
@@ -270,7 +312,8 @@ Cheats             ░░░░░░░░░░   0%
 
 #### Monsters (`p_enemy.c`, `info.c`)
 - **Spawned today:** zombieman (3004), imp (3001), barrel (2035) — see `mobjInfo.js`, `monsterInfo.js`
-- **Missing:** shotgun guy, demon, spectre, lost soul, cacodemon, baron, spider, cyberdemon, … + all `A_*` state actions
+- **Fixed (2026-07-14):** corpse hover — vanilla collision (no map-specific hacks); `momz: 0` on spawn; `killMobj` → immediate `P_SetMobjState`; movement before state tick
+- **Missing:** shotgun guy, demon, spectre, lost soul, cacodemon, baron, spider, cyberdemon, … + most `A_*` state actions
 
 #### Line / sector specials (`p_spec.c`, `p_switch.c`)
 
@@ -299,8 +342,8 @@ See `UseSpecialLine.js`, `CrossSpecialLine.js` for exact `switch` cases.
 
 #### Rendering
 - Single sky texture; no episode SKY2/SKY3
-- Automap: core overlay done; no pan/zoom/follow-mode keys (`am_map.c` full UI)
-- Smaller views lack border flat patches (`R_DrawViewBorder`)
+- Automap: core overlay (Tab); no pan/zoom/follow-mode keys (`am_map.c` full UI)
+- View border: **done** for reduced screen sizes (`ViewBorder.js`)
 
 #### Saves (`p_saveg.c`)
 - Format: JSON v1 in `Game.serializeSave()` / `deserializeSave()`
@@ -321,7 +364,7 @@ See `UseSpecialLine.js`, `CrossSpecialLine.js` for exact `switch` cases.
 | `p_telept.c` | Teleport lines |
 | `p_ceilng.c` | Crushing ceilings |
 | `p_lights.c` | Flicker / strobe / glow |
-| `am_map.c` | Automap |
+| `am_map.c` (full) | Automap pan/zoom/follow UI beyond current overlay |
 | `f_finale.c` | Episode end sequences |
 | `hu_stuff.c` | HUD messages ("Picked up a clip") |
 
@@ -335,7 +378,7 @@ Use this when choosing what to port next. Goal: **complete Doom 1 (shareware + r
 |----------|------|-----|------------------------|
 | P0 | **Key-locked doors** | Blocks progression on E1M2+ | `Doors.js`, `PlayerCards.js` · `p_doors.c`, specials 26–28 |
 | P0 | **Teleports** | Many maps | new `Teleports.js` · `p_telept.c` |
-| P1 | **Power-ups** | Gameplay completeness | `ItemPickup.js`, `PlayerPowers.js` · `p_inter.c` |
+| P1 | **Power-ups** | Light amp, berserk fist | `ItemPickup.js`, `PlayerPowers.js` · `p_inter.c` |
 | P1 | **Shotgun guy + demon** | E1 combat | `mobjInfo.js`, `monsterInfo.js`, states · `p_enemy.c` |
 | P2 | **Crushing ceilings** | E1M3-style traps | new ceiling thinkers · `p_ceilng.c` |
 | P2 | **Raise floor / stairs** | Unlocks geometry | `FloorMovers.js` · `p_floor.c`, `p_spec.c` |
@@ -356,8 +399,10 @@ Use this when choosing what to port next. Goal: **complete Doom 1 (shareware + r
 | If you need to… | Start here |
 |-----------------|------------|
 | Change tic order / what runs per frame | `PlaySession.js` |
+| Debug corpse Z (optional) | `game/debug/CorpseDebug.js` — disable via `localStorage` |
 | Player move, bob, view | `PlayerMovement.js` |
 | Collision, slide, fall, hitscan | `MapCollision.js` |
+| Corpse death / combat states | `MobjCombat.js`, `MonsterThink.js` |
 | Weapons / firing | `Psprites.js`, `weaponConstants.js` |
 | Pickups / give weapon | `ItemPickup.js` |
 | Line use specials | `UseSpecialLine.js`, `UseLines.js` |
@@ -367,6 +412,7 @@ Use this when choosing what to port next. Goal: **complete Doom 1 (shareware + r
 | Monster AI | `MonsterThink.js`, `EnemyMove.js` |
 | Projectiles | `MissileManager.js`, `missileInfo.js` |
 | Render one frame | `Game.js` → `BspRenderer.js` |
+| View border (small screens) | `ViewBorder.js` |
 | HUD | `StatusBar.js` |
 | Menus | `MenuController.js` |
 | Level load / start / exit | `Game.js`, `MapLoader.js` |
@@ -376,17 +422,21 @@ Use this when choosing what to port next. Goal: **complete Doom 1 (shareware + r
 
 ### PlaySession tick order (reference)
 
+Matches vanilla `P_Tick` / `P_MobjThinker` ordering for monsters (movement before state).
+
 ```
 PlayerMovement.move (if alive)
 thinkers.runAll()          // doors, floors, plats
-collision.xyMovement
-collision.zMovement
+collision.xyMovement(player)
+collision.zMovement(player)
 PlayerMovement.calcHeight
 tickPlayerPowers + sector damage
 thinkUse + thinkWeaponChange
-psprites.think
-tickMonsters
+monsterCtx → hitscan + missiles   // death-state actions on kill tic
+psprites.think             // weapons / hitscan (may kill monsters)
+tickMonsters               // XY → Z → state (per mobj)
 missiles.tick
+tickCorpseDebug (optional) // console [corpse] Z diagnostics
 // stats: kills, items, secrets
 ```
 
@@ -438,6 +488,10 @@ User supplies a legally obtained IWAD (e.g. `doom.wad`). File picker available i
 | 2026-07-12 | Player movement: GameLoop, KeyboardInput, MapCollision, PlaySession |
 | 2026-07-14 | Major port audit documented in §12–§14; phase checklist corrected to match codebase |
 | 2026-07-14 | Vanilla Z movement (gravity/fall); all 8 weapons; HUD arms index fix (`weaponowned[i+1]`) |
+| 2026-07-14 | Rendering: low-detail sprites, view border (`ViewBorder.js`), screen size/detail menu |
+| 2026-07-14 | UI flow: wipe melts; intermission stats (kills/items/secrets); menu pause keys |
+| 2026-07-14 | Audio: `MusParser.js` for MUS playback |
+| 2026-07-14 | **Corpse hover fix:** vanilla physics (reverted map hacks); `momz` init; immediate `killMobj`; `P_MobjThinker` tick order; `CorpseDebug.js` |
 
 ---
 
