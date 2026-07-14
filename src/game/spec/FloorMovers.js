@@ -47,6 +47,8 @@ export const FloorMoveType = {
   raiseToHighest: 2,
   /** p_floor.c — raiseFloor */
   raiseFloor: 3,
+  /** p_floor.c — turboLower (fast lower to highest surrounding + 8) */
+  turboLower: 4,
 };
 
 /**
@@ -66,6 +68,7 @@ export function evDoFloor(ctx, line, type) {
     }
 
     let dest;
+    let speed = FLOORSPEED;
     switch (type) {
       case FloorMoveType.lowerToHighest:
         dest = findHighestFloorSurrounding(sec);
@@ -81,6 +84,13 @@ export function evDoFloor(ctx, line, type) {
       case FloorMoveType.raiseToHighest:
         dest = findHighestFloorSurrounding(sec);
         break;
+      case FloorMoveType.turboLower:
+        dest = findHighestFloorSurrounding(sec);
+        if (dest !== sec.floorHeight) {
+          dest += 8 * FRACUNIT;
+        }
+        speed = FLOORSPEED * 4;
+        break;
       case FloorMoveType.lowerToLowest:
       default:
         dest = findLowestFloorSurrounding(sec);
@@ -93,7 +103,7 @@ export function evDoFloor(ctx, line, type) {
 
     activated = true;
 
-    const floor = new FloorMoveThinker(sec, dest, dest < sec.floorHeight ? -1 : 1, FLOORSPEED);
+    const floor = new FloorMoveThinker(sec, dest, dest < sec.floorHeight ? -1 : 1, speed);
     floor.context = ctx;
     sec.specialdata = floor;
     ctx.thinkers.add(floor);

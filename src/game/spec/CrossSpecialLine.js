@@ -68,6 +68,10 @@ export function crossSpecialLine(thing, line, _oldSide, ctx) {
       crossFloor(ctx, line, FloorMoveType.lowerToLowest);
       break;
 
+    case 36:
+      crossFloor(ctx, line, FloorMoveType.turboLower);
+      break;
+
     case 10:
       crossPlat(ctx, line, PlatType.downWaitUpStay);
       break;
