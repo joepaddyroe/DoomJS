@@ -19,6 +19,7 @@ import {
   MAXSPECIALCROSS,
   MAXSTEPHEIGHT,
   MF_DROPOFF,
+  MF_FLOAT,
   MF_MISSILE,
   MF_NOCLIP,
   MF_TELEPORT,
@@ -383,7 +384,7 @@ export class MapCollision {
         && this.tmfloorz - thing.z > MAXSTEPHEIGHT) {
         return false;
       }
-      if (!(thing.flags & (MF_DROPOFF | (1 << 24)))
+      if (!(thing.flags & (MF_DROPOFF | MF_FLOAT))
         && this.tmfloorz - this.tmdropoffz > MAXSTEPHEIGHT) {
         return false;
       }

@@ -5,7 +5,7 @@ import {
   VIEWHEIGHT,
 } from '../core/gameConstants.js';
 import { angleFromDegrees } from '../core/angles.js';
-import { MF_PICKUP, MF_SHOOTABLE, MF_SOLID } from './mobjFlags.js';
+import { MF_DROPOFF, MF_PICKUP, MF_SHOOTABLE, MF_SOLID } from './mobjFlags.js';
 
 /**
  * Map object — player mobj state (p_mobj.c / mobj_t).
@@ -50,7 +50,7 @@ export function createPlayerMobj(thing, level) {
     ceilingz: subsector.sector.ceilingHeight,
     radius: PLAYER_RADIUS,
     height: PLAYER_HEIGHT,
-    flags: MF_PICKUP | MF_SHOOTABLE | MF_SOLID,
+    flags: MF_SOLID | MF_SHOOTABLE | MF_DROPOFF | MF_PICKUP,
     health: 100,
     subsector,
     player: true,

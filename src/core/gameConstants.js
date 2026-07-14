@@ -47,6 +47,7 @@ export const MF_NOCLIP = 1 << 6;
 export const MF_TELEPORT = 1 << 14;
 export const MF_MISSILE = 0x10000;
 export const MF_DROPOFF = 1 << 25;
+export const MF_FLOAT = 0x4000;
 
 /** Keyboard movement speeds (g_game.c — forwardmove / sidemove). */
 export const FORWARDMOVE = [0x19, 0x32];
