@@ -16,13 +16,14 @@ If you are picking up this project with no chat history:
 4. Respect **§2–3** (SOLID + layers) before editing.
 5. After completing work, update **§12**, **§7**, and **§15 Changelog**.
 
-**Current maturity (2026-07-14):** Playable **single-player Doom 1 slice** — E1M1-style maps run with software rendering, all 8 weapons, 3 monster types, core doors/floors/plats, menus, music/SFX, wipes, JSON saves, intermission stats. **Corpse physics / sprite placement** aligned with vanilla (`P_MobjThinker` order, immediate death state). **Not** a full vanilla port yet.
+**Current maturity (2026-07-15):** Playable **single-player Doom 1 slice** — E1M1-style maps run with software rendering, all 8 weapons, 3 monster types, core doors/floors/plats, menus, music/SFX, wipes, JSON saves, intermission stats. **Corpse physics** and **in-game automap** (`am_map.c` subset) aligned with vanilla. **Not** a full vanilla port yet.
 
-### Recent progress (2026-07-14)
+### Recent progress (2026-07-14 – 2026-07-15)
 
 | Area | Done |
 |------|------|
 | **Corpse hover** | Reverted non-vanilla collision hacks; fixed `momz` init, immediate `killMobj` death state, monster tick order (XY → Z → state); optional `[corpse]` console debug (`CorpseDebug.js`) |
+| **Automap** | Fixed int32 overflow in line projection (`fixedMul`); auto-scale to level bounds; vanilla `player_arrow` via `AM_drawLineCharacter`; player glyph **WHITE** (`0xD1`); `am_map.c` palette indices for walls/things |
 | **Rendering polish** | Low-detail sprites; view border flats + `BRDR_*` bevel (`ViewBorder.js`); screen-size / detail menu wired |
 | **UI / flow** | Wipe-melt transitions (menu ↔ game ↔ intermission); intermission stats with live kill/item/secret counts + WI patches |
 | **Menu** | In-game pause/responder closer to vanilla; save/load slots wired via `Game.setSaveSystem` |
@@ -42,7 +43,7 @@ Use **§13** for file-level detail. Summary of what is **not** done yet:
 | **P2** | Crushing ceilings | Not started |
 | **P2** | Raise floor / stairs specials | Not started |
 | **P2** | Spectre spawn (fuzz draw exists) | Not started |
-| **P3** | Automap polish (pan/zoom/follow keys) | Partial (overlay only) |
+| **P3** | Automap polish (pan/zoom/follow keys) | Partial (overlay + player arrow; no pan/zoom UI) |
 | **P3** | Save completeness (thinkers, sectors, RNG, line state) | Partial (JSON subset) |
 | **P3** | E2–E4 map names + `MAP02+` progression | Partial (E1 only) |
 | **P3** | Per-episode skies (SKY2/SKY3) | Not started |
@@ -202,7 +203,7 @@ Legend: `[x]` done · `[~]` partial · `[ ]` not started
 ### Phase 2 — Map
 - [x] `MapLoader` — THINGS, LINEDEFS, SSECTORS, etc.
 - [x] `Level`, `Blockmap`
-- [x] Playable automap (`Automap.js`) — hold Tab; explored lines + `pw_allmap`
+- [x] Playable automap (`Automap.js`) — Tab toggle; explored sectors; `pw_allmap`; vanilla line colors; `player_arrow` (WHITE); auto-scale; safe fixed-point projection
 
 ### Phase 3 — Render
 - [x] Software column/span/patch draw (`SoftwareRenderer`, `ColumnRenderer`, `SpanRenderer`)
@@ -266,12 +267,13 @@ Legend: `[x]` done · `[~]` partial · `[ ]` not started
 
 ## 12. Port status vs vanilla Doom
 
-Last audited: **2026-07-14** against `linuxdoom-1.10`. Re-audit after major features.
+Last audited: **2026-07-15** against `linuxdoom-1.10`. Re-audit after major features.
 
 ### 12.1 Subsystem maturity
 
 ```
-Rendering (3D)     █████████░  ~95%   episode skies, automap polish
+Rendering (3D)     █████████░  ~95%   episode skies
+Automap (overlay)  ███████░░░  ~70%   core draw + player arrow; no pan/zoom UI
 Player / weapons   ████████░░  ~80%   powers, nightmare, attack sprite missing
 Monsters           ██░░░░░░░░  ~15%   3 types; corpse physics now vanilla-faithful
 Map specials       ████░░░░░░  ~40%   no keys/teleport/crush/lights/stairs
@@ -301,6 +303,7 @@ Cheats             ░░░░░░░░░░   0%
 | Audio | `SoundSystem.js`, `MusicSystem.js` | SFX + OPL music |
 | Menus / flow | `Game.js`, `MenuController.js`, `WipeMelt.js` | Title → menu → play → intermission (wipe transitions) |
 | Intermission | `IntermissionStatsScene.js`, `PlaySession.endStats()` | Kill/item/secret counts from live play state |
+| Automap | `Automap.js` | Tab overlay; sector fog; `AM_drawLineCharacter` player arrow; `am_map.c` colors |
 
 ### 12.3 Partial — known gaps
 
@@ -340,9 +343,12 @@ Cheats             ░░░░░░░░░░   0%
 
 See `UseSpecialLine.js`, `CrossSpecialLine.js` for exact `switch` cases.
 
+#### Automap (`am_map.c`)
+- **Done:** Tab overlay; visited-sector line reveal; computer map (`pw_allmap`) shows things; level-fit scale (`AM_findMinMaxBoundaries`); wall/TS wall/thing/player colors from vanilla macros; `player_arrow` rotated via `AM_rotate` + world projection (`fixedMul` — fixes overlapping-line overflow bug)
+- **Missing:** Pan/zoom/follow keys, grid toggle, marks, cheat arrow, full `AMResponder` UI
+
 #### Rendering
 - Single sky texture; no episode SKY2/SKY3
-- Automap: core overlay (Tab); no pan/zoom/follow-mode keys (`am_map.c` full UI)
 - View border: **done** for reduced screen sizes (`ViewBorder.js`)
 
 #### Saves (`p_saveg.c`)
@@ -383,7 +389,7 @@ Use this when choosing what to port next. Goal: **complete Doom 1 (shareware + r
 | P2 | **Crushing ceilings** | E1M3-style traps | new ceiling thinkers · `p_ceilng.c` |
 | P2 | **Raise floor / stairs** | Unlocks geometry | `FloorMovers.js` · `p_floor.c`, `p_spec.c` |
 | P2 | **Spectre spawn** | E1M9 | `mobjInfo.js` — fuzz draw done (`MF_SHADOW`) |
-| P3 | **Automap polish** | Pan/zoom/keys | `Automap.js` · `am_map.c` full UI |
+| P3 | **Automap polish** | Pan/zoom/keys | `Automap.js` · `am_map.c` (`AM_Responder`, marks, grid) |
 | P3 | **Save completeness** | Thinkers + sectors | `Game.js`, `SaveGameStore.js` · `p_saveg.c` |
 | P3 | **E2–E4 names + progression** | Full Doom 1 | `MapNames.js`, `Game.js` |
 | P4 | **More monsters** | E2+ | `monsterInfo.js`, `mobjInfo.js` |
@@ -412,6 +418,7 @@ Use this when choosing what to port next. Goal: **complete Doom 1 (shareware + r
 | Monster AI | `MonsterThink.js`, `EnemyMove.js` |
 | Projectiles | `MissileManager.js`, `missileInfo.js` |
 | Render one frame | `Game.js` → `BspRenderer.js` |
+| In-game automap (Tab) | `Automap.js` |
 | View border (small screens) | `ViewBorder.js` |
 | HUD | `StatusBar.js` |
 | Menus | `MenuController.js` |
@@ -492,6 +499,7 @@ User supplies a legally obtained IWAD (e.g. `doom.wad`). File picker available i
 | 2026-07-14 | UI flow: wipe melts; intermission stats (kills/items/secrets); menu pause keys |
 | 2026-07-14 | Audio: `MusParser.js` for MUS playback |
 | 2026-07-14 | **Corpse hover fix:** vanilla physics (reverted map hacks); `momz` init; immediate `killMobj`; `P_MobjThinker` tick order; `CorpseDebug.js` |
+| 2026-07-15 | **Automap fix:** `fixedMul` line projection (int32 overflow); level-fit scale; vanilla `player_arrow` + WHITE (`0xD1`); `AM_drawLineCharacter` pipeline |
 
 ---
 
