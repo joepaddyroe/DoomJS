@@ -6,7 +6,7 @@ import {
   CARD_YELLOW,
   CARD_YELLOW_SKULL,
 } from './PlayerCards.js';
-import { giveIronFeet } from './PlayerPowers.js';
+import { giveIronFeet, givePower, pw_allmap, pw_invulnerability, pw_invisibility, pw_strength } from './PlayerPowers.js';
 import { FRACUNIT } from '../core/renderConstants.js';
 import {
   AM_CELL,
@@ -136,9 +136,19 @@ export class ItemPickup {
       case 'weapon_chainsaw':
         return this.giveWeapon(player, kind);
       case 'invuln':
+        return givePower(player, pw_invulnerability);
       case 'berserk':
+        if (!givePower(player, pw_strength)) {
+          return false;
+        }
+        if (player.readyweapon !== WP_FIST) {
+          player.pendingweapon = WP_FIST;
+        }
+        return true;
       case 'invis':
+        return givePower(player, pw_invisibility);
       case 'automap':
+        return givePower(player, pw_allmap);
       case 'liteamp':
         return true;
       case 'suit':

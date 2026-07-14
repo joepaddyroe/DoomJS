@@ -90,7 +90,7 @@ export class MenuController {
 
     this.showMessages = true;
     this.detailLevel = 0;
-    this.screenSize = 0;
+    this.screenSize = 7;
     this.mouseSensitivity = 5;
     this.sfxVolume = 15;
     this.musicVolume = 15;

@@ -1,4 +1,4 @@
-import { SCREENHEIGHT, SCREENWIDTH, VIEWHEIGHT } from '../core/renderConstants.js';
+import { SCREENHEIGHT, SCREENWIDTH, SBARHEIGHT } from '../core/renderConstants.js';
 import { BT_ATTACK } from '../core/inputButtons.js';
 import { MapLoader } from '../game/MapLoader.js';
 import { Level } from '../game/Level.js';
@@ -9,6 +9,9 @@ import { TitleScene } from './TitleScene.js';
 import { LevelIntroScene } from './LevelIntroScene.js';
 import { IntermissionStatsScene } from './IntermissionStatsScene.js';
 import { BspRenderer } from '../render/BspRenderer.js';
+import { Automap } from '../render/Automap.js';
+import { ViewBorder } from '../render/ViewBorder.js';
+import { computeViewSize, screenBlocksFromMenuSize } from '../render/ViewSize.js';
 import { createTrigTables } from '../math/tables.js';
 import { nextMapName } from '../game/MapNames.js';
 import { MenuController } from '../ui/MenuController.js';
@@ -79,6 +82,16 @@ export class Game {
     this.bspRenderer = null;
     /** @type {PlaySession|null} */
     this.playSession = null;
+
+    this.automap = new Automap();
+    this.automapVisible = false;
+    /** @type {string|null} */
+    this._viewLayoutKey = null;
+    this.viewLayout = computeViewSize(
+      screenBlocksFromMenuSize(this.menu.screenSize),
+      this.menu.detailLevel,
+    );
+    this.viewBorder = new ViewBorder(this.wad, this.textures);
 
     // Start title music (will begin after unlock).
     this.music?.startMenuMusic();
@@ -178,10 +191,14 @@ export class Game {
     }
 
     // Ensure gameplay view size for RenderContext.
-    this.renderer.initBuffer(SCREENWIDTH, VIEWHEIGHT);
+    this._viewLayoutKey = null;
 
     const player = Player.fromStart(playerStart, level);
     this.bspRenderer = new BspRenderer(level, this.textures, this.renderer, this.assets.colormaps);
+    this.automap = new Automap();
+    this.automapVisible = false;
+    this.applyViewLayout();
+    this.automap.seedPlayer(player);
     this.playSession = new PlaySession(level, player, this.sound, this.skill, {
       textures: this.textures,
       onExitLevel: (secret) => this.completeLevel(secret),
@@ -316,6 +333,12 @@ export class Game {
         }
         if (this.playSession) {
           const player = this.playSession.player;
+          if (!this.menu.active) {
+            this.automap.notePlayerSector(player);
+            if (input.consumeJustPressed('Tab')) {
+              this.automapVisible = !this.automapVisible;
+            }
+          }
           const cmd = input.buildTicCmd();
           player.attacking = (cmd.buttons & BT_ATTACK) !== 0;
 
@@ -409,7 +432,7 @@ export class Game {
         break;
 
       case 'playing':
-        this.renderPlay();
+        this.renderPlay(input);
         this.menu.draw(this.renderer);
         break;
 
@@ -441,46 +464,87 @@ export class Game {
     this.phase = 'wipe';
   }
 
-  renderPlay() {
+  /** @param {import('../platform/input/KeyboardInput.js').KeyboardInput} [input] */
+  renderPlay(input) {
     if (!this.bspRenderer || !this.playSession) {
       return;
     }
 
-    this.renderer.initBuffer(SCREENWIDTH, VIEWHEIGHT);
-    this.bspRenderer.renderView(this.playSession.view());
+    const layout = this.applyViewLayout();
+    const automapActive = !this.menu.active && this.automapVisible;
 
-    const { drawSegs, drawSegCount } = this.bspRenderer.ctx;
-    const view = this.playSession.view();
-    const extralight = this.playSession.player.extralight;
+    this.renderer.clear(0);
 
-    this.billboardRenderer.drawThings(
-      [...this.playSession.things, ...this.playSession.missiles.missiles],
-      view,
-      this.bspRenderer.ctx.viewSetup,
-      this.trigTables,
-      drawSegs,
-      drawSegCount,
-      this.bspRenderer.walls,
-      extralight,
-    );
-    this.billboardRenderer.drawPuffs(
-      this.playSession.puffs.puffs,
-      view,
-      this.bspRenderer.ctx.viewSetup,
-      this.trigTables,
-      drawSegs,
-      drawSegCount,
-      this.bspRenderer.walls,
-      extralight,
-    );
+    if (automapActive) {
+      const mapHeight = layout.showStatusBar ? SCREENHEIGHT - SBARHEIGHT : SCREENHEIGHT;
+      this.automap.draw(
+        this.renderer,
+        this.playSession.level,
+        this.playSession.player,
+        this.playSession.things,
+        mapHeight,
+      );
+    } else {
+      if (layout.scaledViewWidth < SCREENWIDTH) {
+        this.viewBorder.draw(this.renderer.pixels, layout);
+      }
 
-    this.bspRenderer.walls.renderAllMaskedSegs();
+      this.renderer.initBuffer(layout.scaledViewWidth, layout.viewHeight);
+      this.renderer.setViewMetrics(layout.detailShift, layout.viewWidth);
 
-    if (!this.playSession.player.dead) {
-      this.pspriteRenderer.draw(this.playSession.player, extralight);
+      this.bspRenderer.renderView(this.playSession.view());
+
+      const { drawSegs, drawSegCount } = this.bspRenderer.ctx;
+      const view = this.playSession.view();
+      const extralight = this.playSession.player.extralight;
+
+      this.billboardRenderer.drawThings(
+        [...this.playSession.things, ...this.playSession.missiles.missiles],
+        view,
+        this.bspRenderer.ctx.viewSetup,
+        this.trigTables,
+        drawSegs,
+        drawSegCount,
+        this.bspRenderer.walls,
+        extralight,
+      );
+      this.billboardRenderer.drawPuffs(
+        this.playSession.puffs.puffs,
+        view,
+        this.bspRenderer.ctx.viewSetup,
+        this.trigTables,
+        drawSegs,
+        drawSegCount,
+        this.bspRenderer.walls,
+        extralight,
+      );
+
+      this.bspRenderer.walls.renderAllMaskedSegs();
+
+      if (!this.playSession.player.dead) {
+        this.pspriteRenderer.draw(this.playSession.player, extralight);
+      }
     }
 
-    this.statusBar.draw(this.renderer, this.playSession.player);
+    if (layout.showStatusBar) {
+      this.statusBar.draw(this.renderer, this.playSession.player);
+    }
+  }
+
+  applyViewLayout() {
+    const layout = computeViewSize(
+      screenBlocksFromMenuSize(this.menu.screenSize),
+      this.menu.detailLevel,
+    );
+    const key = `${layout.scaledViewWidth},${layout.viewHeight},${layout.detailShift},${layout.viewWidth}`;
+    if (this._viewLayoutKey !== key) {
+      if (this.bspRenderer) {
+        this.bspRenderer.resizeView(layout.viewWidth, layout.viewHeight, layout.detailShift);
+      }
+      this._viewLayoutKey = key;
+    }
+    this.viewLayout = layout;
+    return layout;
   }
 
   beginLevelIntro() {
@@ -496,8 +560,9 @@ export class Game {
     }
 
     // Ensure the renderer view size matches gameplay before creating RenderContext.
-    // RenderContext caches viewWidth/viewHeight in its ViewSetup tables.
-    this.renderer.initBuffer(SCREENWIDTH, VIEWHEIGHT);
+    this._viewLayoutKey = null;
+    this.automap = new Automap();
+    this.automapVisible = false;
 
     const level = Level.fromMap(this.map, this.textures, this.map.blockmap);
     const playerStart = MapLoader.findPlayerStart(this.map);
@@ -507,6 +572,8 @@ export class Game {
 
     const player = Player.fromStart(playerStart, level);
     this.bspRenderer = new BspRenderer(level, this.textures, this.renderer, this.assets.colormaps);
+    this.applyViewLayout();
+    this.automap.seedPlayer(player);
     this.playSession = new PlaySession(level, player, this.sound, this.skill, {
       textures: this.textures,
       onExitLevel: (secret) => this.completeLevel(secret),

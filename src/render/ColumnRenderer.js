@@ -101,12 +101,13 @@ export class ColumnRenderer {
       spryscale,
       colormap: dcColormap,
       centerYFrac,
-      floorClip = this.buffer.screenHeight,
+      floorClip = this.buffer.viewHeight,
       ceilingClip = -1,
       patchData = null,
       columnOffset = 0,
       originY = 0,
       flatColumn = null,
+      detailShift = 0,
     } = params;
 
     if (spryscale <= 0) {
@@ -134,9 +135,8 @@ export class ColumnRenderer {
           dcColormap,
           floorClip,
           ceilingClip,
-          screenWidth,
-          screenHeight,
-          pixels,
+          detailShift,
+          buffer: this.buffer,
         });
         pos += length + 4;
         topDelta = patchData[pos];
@@ -168,9 +168,8 @@ export class ColumnRenderer {
           dcColormap,
           floorClip,
           ceilingClip,
-          screenWidth,
-          screenHeight,
-          pixels,
+          detailShift,
+          buffer: this.buffer,
         });
       }
     }
@@ -191,10 +190,13 @@ export class ColumnRenderer {
       dcColormap,
       floorClip,
       ceilingClip,
-      screenWidth,
-      screenHeight,
-      pixels,
+      detailShift = 0,
+      buffer,
     } = post;
+
+    const screenWidth = buffer.screenWidth;
+    const viewHeight = buffer.viewHeight;
+    const pixels = buffer.pixels;
 
     const topscreen = sprtopscreen + int32(Math.imul(topRow, spryscale));
     const bottomscreen = topscreen + int32(Math.imul(length, spryscale));
@@ -211,19 +213,26 @@ export class ColumnRenderer {
     if (dcYl < 0) {
       dcYl = 0;
     }
-    if (dcYh >= screenHeight) {
-      dcYh = screenHeight - 1;
+    if (dcYh >= viewHeight) {
+      dcYh = viewHeight - 1;
     }
     if (dcYl > dcYh) {
       return;
     }
 
+    const bufferX = dcX << detailShift;
+    let dest = buffer.viewColumnOffset(bufferX, dcYl);
     for (let screenY = dcYl; screenY <= dcYh; screenY++) {
       const srcRow = Math.min(
         length - 1,
         Math.max(0, (((screenY << FRACBITS) - topscreen) / spryscale) | 0),
       );
-      pixels[screenY * screenWidth + dcX] = dcColormap[source[sourceIndex + srcRow]];
+      const color = dcColormap[source[sourceIndex + srcRow]];
+      pixels[dest] = color;
+      if (detailShift) {
+        pixels[dest + 1] = color;
+      }
+      dest += screenWidth;
     }
   }
 

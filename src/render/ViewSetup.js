@@ -25,11 +25,13 @@ export class ViewSetup {
    * @param {number} viewWidth
    * @param {number} viewHeight
    */
-  constructor(tables, colormaps, viewWidth, viewHeight) {
+  constructor(tables, colormaps, viewWidth, viewHeight, detailShift = 0) {
     this.tables = tables;
     this.colormaps = colormaps;
     this.viewWidth = viewWidth;
     this.viewHeight = viewHeight;
+    this.detailShift = detailShift;
+    this.scaledViewWidth = viewWidth << detailShift;
     this.centerX = viewWidth >> 1;
     this.centerY = viewHeight >> 1;
     this.centerXFrac = this.centerX << FRACBITS;
@@ -93,10 +95,11 @@ export class ViewSetup {
   }
 
   buildSlopeTables() {
+    const halfWidth = (this.viewWidth << this.detailShift) / 2;
     for (let i = 0; i < this.viewHeight; i++) {
       let dy = ((i - (this.viewHeight / 2)) << FRACBITS) + FRACUNIT / 2;
       dy = Math.abs(dy);
-      this.ySlope[i] = fixedDiv2((this.viewWidth / 2) * FRACUNIT, dy || 1);
+      this.ySlope[i] = fixedDiv2(halfWidth * FRACUNIT, dy || 1);
     }
 
     for (let i = 0; i < this.viewWidth; i++) {
@@ -123,7 +126,7 @@ export class ViewSetup {
       }
 
       for (let j = 0; j < MAXLIGHTSCALE; j++) {
-        let level = (startMap - ((j * SCREENWIDTH / this.viewWidth | 0) / distMap | 0)) | 0;
+        let level = (startMap - ((j * SCREENWIDTH / this.scaledViewWidth | 0) / distMap | 0)) | 0;
         if (level < 0) {
           level = 0;
         }

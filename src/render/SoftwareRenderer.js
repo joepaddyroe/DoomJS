@@ -43,6 +43,11 @@ export class SoftwareRenderer {
     /** @type {Uint8Array|null} Full COLORMAP lump (32 × 256). */
     this.colormaps = null;
 
+    /** Low-detail shift for sprite drawing (0 or 1). */
+    this.detailShift = 0;
+    /** Logical view width in BSP/sprite coordinates. */
+    this.logicalViewWidth = screenWidth;
+
     /** @type {Uint8Array|null} Player translation tables (768 bytes, 3 × 256). */
     this.translationTables = null;
   }
@@ -67,10 +72,36 @@ export class SoftwareRenderer {
   }
 
   /**
+   * @param {number} detailShift
+   * @param {number} logicalViewWidth
+   */
+  setViewMetrics(detailShift, logicalViewWidth) {
+    this.detailShift = detailShift;
+    this.logicalViewWidth = logicalViewWidth;
+  }
+
+  /**
    * @param {number} [color=0]
    */
   clear(color = 0) {
     this.buffer.clear(color);
+  }
+
+  /** Clear only the 3D view window, leaving letterbox border intact. */
+  clearView(color = 0) {
+    const {
+      pixels,
+      screenWidth,
+      viewWidth,
+      viewHeight,
+      viewWindowX,
+      viewWindowY,
+    } = this.buffer;
+
+    for (let y = 0; y < viewHeight; y++) {
+      const start = (viewWindowY + y) * screenWidth + viewWindowX;
+      pixels.fill(color, start, start + viewWidth);
+    }
   }
 
   /**
@@ -129,7 +160,7 @@ export class SoftwareRenderer {
    * @param {Object} params
    */
   drawMaskedColumn(params) {
-    this.columns.drawMaskedColumn(params);
+    this.columns.drawMaskedColumn({ ...params, detailShift: this.detailShift });
   }
 
   /**
@@ -209,14 +240,67 @@ export class SoftwareRenderer {
 
   /**
    * @param {number} x
-   * @param {number} y
+   * @param {number} texturemid
    * @param {import('./PatchRenderer.js').PatchHeader} patch
    * @param {Uint8Array} patchData
    * @param {Uint8Array|null} colormap
-   * @param {number} scale
+   * @param {number} scaleV
+   * @param {number} scaleH
+   * @param {number} centerYFrac
    */
-  drawPatchScaled(x, y, patch, patchData, colormap, scale, clipbot, cliptop, clipX1, flip = false) {
-    this.patches.drawPatchScaled(x, y, patch, patchData, colormap, scale, clipbot, cliptop, clipX1, flip);
+  drawPatchScaled(x, texturemid, patch, patchData, colormap, scaleV, scaleH, centerYFrac, clipbot = null, cliptop = null, clipX1 = 0, flip = false) {
+    this.patches.drawPatchScaled(
+      this.buffer,
+      x,
+      texturemid,
+      patch,
+      patchData,
+      colormap,
+      scaleV,
+      scaleH,
+      centerYFrac,
+      this.detailShift,
+      this.logicalViewWidth,
+      this.viewHeight,
+      clipbot,
+      cliptop,
+      clipX1,
+      flip,
+    );
+  }
+
+  /**
+   * @param {number} x
+   * @param {number} texturemid
+   * @param {import('./PatchRenderer.js').PatchHeader} patch
+   * @param {Uint8Array} patchData
+   * @param {number} scaleV
+   * @param {number} scaleH
+   * @param {number} centerYFrac
+   */
+  drawPatchScaledFuzz(x, texturemid, patch, patchData, scaleV, scaleH, centerYFrac, clipbot = null, cliptop = null, clipX1 = 0, flip = false) {
+    if (!this.colormaps) {
+      throw new Error('drawPatchScaledFuzz requires colormaps');
+    }
+    this.patches.drawPatchScaledFuzz(
+      this.buffer,
+      x,
+      texturemid,
+      patch,
+      patchData,
+      this.colormaps,
+      scaleV,
+      scaleH,
+      this.columns,
+      centerYFrac,
+      this.detailShift,
+      this.logicalViewWidth,
+      this.viewHeight,
+      clipbot,
+      cliptop,
+      clipX1,
+      flip,
+    );
   }
 
   /**

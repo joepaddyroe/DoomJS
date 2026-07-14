@@ -23,7 +23,8 @@ export class RenderContext {
 
     this.viewWidth = softwareRenderer.viewWidth;
     this.viewHeight = softwareRenderer.viewHeight;
-    this.viewSetup = new ViewSetup(this.tables, colormaps, this.viewWidth, this.viewHeight);
+    this.detailShift = 0;
+    this.viewSetup = new ViewSetup(this.tables, colormaps, this.viewWidth, this.viewHeight, this.detailShift);
 
     this.clipSegs = new ClipSegList(this.viewWidth);
     this.floorClip = new Int16Array(this.viewWidth);
@@ -42,6 +43,40 @@ export class RenderContext {
     this.viewSin = 0;
     this.viewCos = 0;
     this.extralight = 0;
+  }
+
+  /**
+   * Rebuild per-view tables after screen size or detail change (R_SetViewSize).
+   * @param {number} viewWidth
+   * @param {number} viewHeight
+   * @param {number} detailShift
+   */
+  resize(viewWidth, viewHeight, detailShift) {
+    this.viewWidth = viewWidth;
+    this.viewHeight = viewHeight;
+    this.detailShift = detailShift;
+    this.viewSetup = new ViewSetup(this.tables, this.colormaps, viewWidth, viewHeight, detailShift);
+    this.clipSegs = new ClipSegList(viewWidth);
+    this.floorClip = new Int16Array(viewWidth);
+    this.ceilingClip = new Int16Array(viewWidth);
+  }
+
+  /** @param {import('./ColumnRenderer.js').ColumnDrawParams} params */
+  drawWallColumn(params) {
+    if (this.detailShift) {
+      this.softwareRenderer.drawColumnLow(params);
+    } else {
+      this.softwareRenderer.drawColumn(params);
+    }
+  }
+
+  /** @param {import('./SpanRenderer.js').SpanDrawParams} params */
+  drawPlaneSpan(params) {
+    if (this.detailShift) {
+      this.softwareRenderer.drawSpanLow(params);
+    } else {
+      this.softwareRenderer.drawSpan(params);
+    }
   }
 
   /** @param {{ x: number, y: number, z: number, angle: number }} view */

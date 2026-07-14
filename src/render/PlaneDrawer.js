@@ -192,7 +192,7 @@ export class PlaneDrawer {
         continue;
       }
       const skyCol = (fineAngleIndex(this.ctx.viewAngle + this.ctx.viewSetup.xToViewAngle[x]) >> 3) & 255;
-      this.ctx.softwareRenderer.drawColumn({
+      this.ctx.drawWallColumn({
         x,
         yl,
         yh,
@@ -262,7 +262,7 @@ export class PlaneDrawer {
     const dsXFrac = this.ctx.viewX + fixedMul(this.ctx.tables.finecosine[angle], length);
     const dsYFrac = -this.ctx.viewY - fixedMul(this.ctx.tables.finesine[angle], length);
 
-    this.ctx.softwareRenderer.drawSpan({
+    this.ctx.drawPlaneSpan({
       y,
       x1,
       x2,

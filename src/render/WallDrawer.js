@@ -80,6 +80,7 @@ export class WallDrawer {
       rwDistance,
       this.ctx.viewSetup.projection,
       this.ctx.tables.finesine,
+      this.ctx.detailShift,
     );
     ds.scale1 = rwScale;
 
@@ -92,6 +93,7 @@ export class WallDrawer {
         rwDistance,
         this.ctx.viewSetup.projection,
         this.ctx.tables.finesine,
+        this.ctx.detailShift,
       );
       ds.scale2 = scale2;
       rwScaleStep = ((scale2 - rwScale) / (stop - start)) | 0;
@@ -383,7 +385,7 @@ export class WallDrawer {
 
       if (midTexture) {
         if (segTextured) {
-          this.ctx.softwareRenderer.drawColumn({
+          this.ctx.drawWallColumn({
             x: rwX,
             yl,
             yh,
@@ -404,7 +406,7 @@ export class WallDrawer {
           }
           if (mid >= yl) {
             if (segTextured) {
-              this.ctx.softwareRenderer.drawColumn({
+              this.ctx.drawWallColumn({
                 x: rwX,
                 yl,
                 yh: mid,
@@ -430,7 +432,7 @@ export class WallDrawer {
           }
           if (mid <= yh) {
             if (segTextured) {
-              this.ctx.softwareRenderer.drawColumn({
+              this.ctx.drawWallColumn({
                 x: rwX,
                 yl: mid,
                 yh,

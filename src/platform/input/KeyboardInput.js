@@ -172,6 +172,11 @@ export class KeyboardInput {
   }
 
   /** @param {string} code */
+  isKeyDown(code) {
+    return this.enabled && this.keys.has(code);
+  }
+
+  /** @param {string} code */
   _isGameKey(code) {
     return code.startsWith('Arrow')
       || code === 'KeyW' || code === 'KeyA' || code === 'KeyS' || code === 'KeyD'
@@ -179,6 +184,7 @@ export class KeyboardInput {
       || code === 'Space'
       || code === 'KeyE' || code === 'Enter'
       || code === 'KeyR'
+      || code === 'Tab'
       || code === 'Escape' || code === 'Backspace'
       || (code >= 'Digit1' && code <= 'Digit7');
   }

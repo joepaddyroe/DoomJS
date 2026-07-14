@@ -1,243 +1,414 @@
 # DoomJS — Project Guide
 
-Canonical instructions for building and maintaining this port. **Read this file before making structural changes.** Update it when architecture, conventions, or phase status change.
+Canonical instructions for building and maintaining this port. **Read this file before making structural changes.** Update it when architecture, conventions, or port status change.
+
+**Reference source (read-only):** `../DOOM-master/linuxdoom-1.10/`
+
+---
+
+## Quick start for agents (context recovery)
+
+If you are picking up this project with no chat history:
+
+1. Read **§12 Port status** — what works vs what vanilla still has.
+2. Read **§13 Priority roadmap** — suggested order of work.
+3. Use **§14 Key file map** to jump to the right module.
+4. Respect **§2–3** (SOLID + layers) before editing.
+5. After completing work, update **§12**, **§7**, and **§15 Changelog**.
+
+**Current maturity (2026-07-14):** Playable **single-player Doom 1 slice** — E1M1-style maps run with software rendering, all 8 weapons, 3 monster types, core doors/floors/plats, menus, music/SFX, wipes, JSON saves. **Not** a full vanilla port yet.
 
 ---
 
 ## 1. Mission
 
-Port the original Doom engine (`../DOOM-master/linuxdoom-1.10/`) to JavaScript so it runs locally in a browser via `index.html`.
+Port the original Doom engine to JavaScript so it runs in a browser via `index.html`.
 
 | Goal | Detail |
 |------|--------|
 | Fidelity | Preserve original game logic and data flow; behaviour should match the C source where practical |
-| Structure | Use sound OOP and SOLID design — not a line-by-line transliteration of C globals |
-| Runtime | Plain ES modules, no build step required for local development (open `index.html` or serve statically) |
-| Display | Full-viewport HTML canvas; internal render resolution may differ from display size |
-| Reference | `DOOM-master/` is **read-only reference** — never edit it |
+| Structure | Sound OOP / SOLID — not a line-by-line transliteration of C globals |
+| Runtime | Plain ES modules; no build step for local dev (static serve + `index.html`) |
+| Display | Full-viewport canvas; internal 320×200 (classic) scaled to viewport |
+| Reference | `DOOM-master/` is **read-only** — never edit it |
 
 ---
 
 ## 2. SOLID Rules (Mandatory)
 
-Apply these on every change. If a design violates one, refactor before adding more code.
-
 ### Single Responsibility (SRP)
-- One class/module = one reason to change.
-- Example: `WadReader` loads lump data; `TextureCache` owns texture lookup; `Renderer` draws — not one “DoomEngine” god object.
+One class/module = one reason to change. Example: `WadFile` reads lumps; `TextureManager` owns textures; `BspRenderer` draws — not one god object.
 
 ### Open/Closed (OCP)
-- Extend behaviour via new implementations or composition, not by editing stable core classes.
-- Example: add `WebAudioSoundDriver` implementing `ISoundDriver` without changing `GameLoop`.
+Extend via new implementations. Example: `WebAudioSoundDriver` / `HowlerSoundDriver` implement `SoundDriver` without changing `GameLoop`.
 
 ### Liskov Substitution (LSP)
-- Subtypes must honour their interface contracts.
-- Example: any `IVideoOutput` (`Canvas2DOutput`, future `WebGLOutput`) must support the same `present(buffer)` contract.
+Subtypes honour interface contracts. Example: any video output must support the same present contract.
 
 ### Interface Segregation (ISP)
-- Small, focused interfaces — consumers depend only on what they use.
-- Example: `IInputSource` (poll events) is separate from `IInputMapper` (keys → game actions).
+Small interfaces. Example: keyboard polling is separate from ticcmd building.
 
 ### Dependency Inversion (DIP)
-- High-level game code depends on abstractions, not browser APIs.
-- Example: `Game` receives `IVideoOutput`, `ISoundDriver`, `IInputSource`, `IWadLoader` via constructor injection — never imports `canvas.getContext` directly.
+Game code depends on abstractions, not browser APIs. `Game` receives sound/input/video via wiring in `main.js`.
 
 ---
 
-## 3. Object-Oriented Architecture
-
-### Layer model (dependencies flow downward only)
+## 3. Layer model (dependencies flow downward only)
 
 ```
 index.html / main.js          ← bootstrap, wiring
         ↓
-Application / GameLoop        ← tick, state machine, scene transitions
+app/                          ← Game, GameLoop, PlaySession, scenes, saves
         ↓
-Subsystems                    ← game, play, render, sound, menu, wad
+game/ render/ audio/ ui/ wad/  ← subsystems
         ↓
-Domain                        ← mobj, map, thinker, ticcmd, fixed math
+core/ math/                   ← constants, fixed-point, geometry
         ↓
-Platform abstractions         ← video, input, sound, timing, filesystem
+platform/                     ← canvas, input, sound drivers
         ↓
-Browser APIs                  ← canvas, Web Audio, keyboard, fetch/File
+Browser APIs
 ```
 
-**Rule:** Domain and subsystems must not import browser globals. Platform code implements interfaces defined above it.
+**Rule:** `src/game/` and `src/render/` must not import `document`/`window` directly.
 
-### Core types (planned)
+### C source → DoomJS mapping
 
-| Type | Responsibility |
-|------|----------------|
-| `Game` | Owns high-level state (`GameMode`, level load, pause, demo) |
-| `GameLoop` | Fixed tic rate (35 Hz), dispatches `tick()` and `render()` |
-| `Level` | Map geometry, sectors, linesides, things |
-| `Mobj` (MapObject) | Entity position, momentum, state machine |
-| `Thinker` | Per-tic logic attached to world objects |
-| `Renderer` | BSP traverse, seg/plane/sprite draw |
-| `WadFile` / `WadLump` | WAD archive and lump access |
-| `Fixed` | 16.16 fixed-point math (port of `m_fixed`) |
-| `TicCmd` | One frame of player input |
-
-Prefer **composition** over deep inheritance. Use inheritance only for true “is-a” substitutability (e.g. `Thinker` subclasses).
-
-### Mapping from C source (reference only)
-
-| C prefix / files | DoomJS module (planned) |
-|------------------|-------------------------|
-| `i_*` (video, sound, system, net) | `src/platform/` |
+| C prefix / files | DoomJS |
+|------------------|--------|
+| `i_*` | `src/platform/` |
 | `m_*` (fixed, random, menu, cheat) | `src/math/`, `src/ui/` |
 | `w_wad` | `src/wad/` |
-| `p_*` (play, mobj, map, setup) | `src/game/` |
-| `r_*` (render) | `src/render/` |
-| `s_*` / `sounds` | `src/audio/` |
+| `p_*` (play, mobj, map, spec) | `src/game/` |
+| `r_*` | `src/render/` |
+| `s_*` | `src/audio/` |
 | `g_game`, `d_main` | `src/app/` |
-| `hu_*`, `st_*`, `wi_*`, `f_*` | `src/ui/` |
-| `doomdef`, `doomstat`, `info` | `src/core/` |
+| `hu_*`, `st_*`, `wi_*`, `f_*` | `src/ui/`, `src/app/` |
+| `doomdef`, `info` | `src/core/`, `src/game/mobjInfo.js`, `monsterInfo.js` |
 
-When porting a C function, identify which **class owns the data** it mutates. Move globals into that instance.
+When porting a C function, identify which **class owns the data** it mutates.
 
 ---
 
-## 4. Directory Layout
-
-Create folders as features are implemented — do not scaffold everything upfront.
+## 4. Directory layout (actual)
 
 ```
 DoomJS/
-├── index.html              # Entry point; minimal — only bootstraps main module
-├── PROJECT.md              # This file
+├── index.html
+├── PROJECT.md
 ├── src/
-│   ├── main.js             # Composition root: wire dependencies, start GameLoop
-│   ├── app/                # GameLoop, Game, application state
-│   ├── core/               # Constants, enums, shared types (from doomdef, info)
-│   ├── math/               # Fixed-point, trig tables, bbox
-│   ├── wad/                # WAD loading and lump I/O
-│   ├── game/               # Play simulation (mobj, map, thinkers)
-│   ├── render/             # Renderer and draw pipeline
-│   ├── audio/              # Sound subsystem
-│   ├── ui/                 # HUD, status bar, menus, intermission
-│   └── platform/
-│       ├── video/          # Canvas output, framebuffer
-│       ├── input/          # Keyboard / pointer
-│       ├── sound/          # Web Audio adapter
-│       └── timing/         # requestAnimationFrame + tic accumulator
-└── assets/                 # Optional local IWAD/PWAD (gitignored if large)
+│   ├── main.js                 # Composition root
+│   ├── app/
+│   │   ├── Game.js             # State machine, save/load, level flow
+│   │   ├── GameLoop.js         # 35 Hz tic accumulator
+│   │   ├── PlaySession.js      # One level: tick order, thinkers, combat
+│   │   ├── TitleScene.js, LevelIntroScene.js, IntermissionStatsScene.js
+│   │   └── SaveGameStore.js    # localStorage JSON saves
+│   ├── core/                   # gameConstants, renderConstants, inputButtons
+│   ├── math/                   # fixed, tables, mapGeometry, viewMath
+│   ├── wad/                    # WadFile, GameAssets, MusParser
+│   ├── game/
+│   │   ├── MapLoader.js, Level.js, Blockmap.js, MapCollision.js
+│   │   ├── Player.js, PlayerMovement.js, PlayerThink.js, PlayerDeath.js
+│   │   ├── PlayerPowers.js, ItemPickup.js, Hitscan.js, Mobj.js
+│   │   ├── spec/               # Doors, FloorMovers, Plats, specials
+│   │   ├── weapons/            # Psprites.js, weaponConstants.js
+│   │   └── monster/            # AI, missiles, combat (3 types only)
+│   ├── render/                 # SoftwareRenderer, BSP, walls, planes, sprites, HUD
+│   ├── audio/                  # SoundSystem, MusicSystem, OPL backend
+│   ├── ui/                     # MenuController, WipeMelt, Gamemode
+│   └── platform/               # Canvas, keyboard, mouse, sound drivers
+└── assets/                     # Optional WAD (often gitignored)
 ```
 
 ---
 
-## 5. Coding Conventions
+## 5. Coding conventions
 
-### JavaScript
-- ES modules (`import` / `export`); `"type": "module"` on script tags
-- Classes for stateful subsystems; plain functions for pure helpers (e.g. fixed-point ops)
-- `camelCase` for methods/variables; `PascalCase` for classes; `UPPER_SNAKE` for constants mirroring C macros
-- JSDoc on public class methods and interfaces (`@typedef` for structural types if no TypeScript)
-- No default exports except possibly `main.js`
-
-### Fidelity vs idiomatic JS
-- **Keep:** fixed-point math, tic rate (35 tics/sec), state tables, WAD lump layouts, deterministic RNG where gameplay depends on it
-- **Modernize:** manual memory (`z_zone`) → GC; function pointers → strategy objects / method dispatch; `byte*` → `Uint8Array`
-
-### Canvas / video
-- Native resolution target: **320×200** (classic Doom), scaled to viewport
-- Letterbox or stretch via a dedicated `CanvasVideoOutput` — scaling logic lives in platform layer only
-- Separate **game framebuffer** from **display canvas** (SRP)
-
-### Error handling
-- Fail fast at load time (missing WAD, bad lump) with clear console errors
-- Avoid silent fallbacks that hide port bugs during development
+- ES modules; `camelCase` methods, `PascalCase` classes, `UPPER_SNAKE` for C-macro-style constants
+- JSDoc on public APIs
+- **Keep:** 35 tics/sec, fixed-point, WAD layouts, deterministic RNG for gameplay
+- **Modernize:** manual memory → GC; function pointers → method dispatch; `byte*` → `Uint8Array`
+- Native render buffer: **320×200** gameplay height (status bar uses lower portion per vanilla layout)
+- Fail fast on missing WAD/lumps during development
 
 ---
 
-## 6. Porting Workflow
+## 6. Porting workflow
 
-For each feature:
+1. Locate C source in `linuxdoom-1.10/`
+2. Identify data ownership (globals → instance fields)
+3. Design JS class/interface
+4. Port one vertical slice
+5. Verify against vanilla behaviour on a known map
+6. Update **§7** checklist and **§12** port status in this file
 
-1. **Locate** the C source in `DOOM-master/linuxdoom-1.10/`
-2. **Identify** data ownership — list globals the code reads/writes
-3. **Design** the JS class(es) and interface(s) before writing logic
-4. **Port** logic incrementally; keep diffs focused on one subsystem
-5. **Verify** behaviour against C where possible (same map, same tic, same output)
-6. **Update** the Phase checklist below
-
-Do **not** bulk-translate entire `.c` files in one commit. Port vertical slices (e.g. “load WAD → read map lump → draw one frame”).
+Do **not** bulk-translate entire `.c` files. One subsystem per change.
 
 ---
 
-## 7. Implementation Phases
+## 7. Implementation phases (accurate status)
 
-Track progress here. Mark items `[x]` when done.
+Legend: `[x]` done · `[~]` partial · `[ ]` not started
 
 ### Phase 0 — Shell
-- [x] Full-viewport canvas (`index.html`)
-- [x] ES module bootstrap (`src/main.js`)
-- [x] `GameLoop` with tic accumulator
-- [x] `CanvasVideoOutput` with 320×200 buffer + scale-to-fit
+- [x] Full-viewport canvas, ES module bootstrap
+- [x] `GameLoop` with 35 Hz tic accumulator
+- [x] `CanvasVideoOutput` — 320×200 buffer + scale-to-fit
 
 ### Phase 1 — Data
-- [x] `WadFile` — parse WAD directory and read lumps
-- [x] `GameAssets` — PLAYPAL, COLORMAP, flat lookup
-- [ ] User WAD file picker (browser has no filesystem like C)
+- [x] `WadFile` — WAD directory and lump I/O
+- [x] `GameAssets` — PLAYPAL, COLORMAP, flats
+- [x] `TextureManager`, sprite patches
+- [x] User WAD file picker (`WadLoaderPrompt.js`) when fetch fails
 
 ### Phase 2 — Map
-- [x] `MapLoader` — load map lumps (E1M1 tested)
-- [x] Top-down automap debug view (`MapTopDownRenderer`)
-- [ ] Fixed-point math integration for 3D view
+- [x] `MapLoader` — THINGS, LINEDEFS, SSECTORS, etc.
+- [x] `Level`, `Blockmap`
+- [x] Playable automap (`Automap.js`) — hold Tab; explored lines + `pw_allmap`
 
 ### Phase 3 — Render
-- [x] Software draw core (`SoftwareRenderer`, column/span/patch drawers — `r_draw.c`)
-- [ ] BSP (`r_bsp`)
-- [ ] Segs / planes / sky (`r_segs`, `r_plane`, `r_sky`)
-- [ ] Sprites (`r_things`, `r_draw` integration)
-- [ ] Palette / colormap from PLAYPAL / COLORMAP lumps
+- [x] Software column/span/patch draw (`SoftwareRenderer`, `ColumnRenderer`, `SpanRenderer`)
+- [x] BSP traverse (`BspRenderer`, `BspTraverser`, `WallDrawer`)
+- [x] Floors/ceilings (`PlaneDrawer`), sky (single texture)
+- [x] Sprites + psprites (`BillboardRenderer`, `SpritePatches`)
+- [x] Palette / colormap / distance lighting / weapon `extralight`
+- [x] Low detail wired (`ViewSize.js`, menu detail → `drawColumnLow` / `drawSpanLow`)
+- [x] Screen-size menu wired (`ViewSize.js`, `Game.applyViewLayout`)
+- [x] Fuzz draw for `MF_SHADOW` sprites (`PatchRenderer.drawPatchScaledFuzz`, invis power)
+- [ ] Per-episode sky (`r_sky.c` SKY1/2/3)
 
-### Phase 4 — Play
-- [x] `Mobj` and player entity (subset of `p_mobj`)
-- [x] Player movement (`p_user` — P_Thrust, P_MovePlayer, P_CalcHeight)
-- [x] Collision (`p_map` — P_CheckPosition, P_TryMove, P_XYMovement, P_SlideMove)
-- [ ] Game state (`g_game`)
+### Phase 4 — Play simulation
+- [x] `Mobj`, player spawn, `TicCmd`
+- [x] Player movement (`PlayerMovement.js` — thrust, bob, view height)
+- [x] Collision (`MapCollision.js` — tryMove, slide, hitscan, gravity/Z movement)
+- [x] All 8 weapons (`Psprites.js`, `weaponConstants.js`, player missiles)
+- [x] Item pickup (`ItemPickup.js`) — weapons, ammo, health, armor, keys, backpack
+- [~] Player powers — invuln/berserk/invis/automap work; light amp (`pw_infrared`) not yet
+- [x] Player death + use-to-respawn (reload level)
+- [~] Monsters — **zombieman, imp, barrel only**
+- [~] Map specials — doors/floors/plats subset (see §12.4)
+- [x] Sector damage (nukage/slime/hellslime)
+- [x] Exits (normal + secret)
+- [ ] Key-locked doors (specials exist, **no card checks**)
+- [ ] Teleports (`p_telept.c`)
+- [ ] Crushers (`p_ceilng.c`)
+- [ ] Light thinkers (`p_lights.c`)
+- [ ] Stairs / many floor raise types
+- [ ] Nightmare mode (fast monsters, respawn)
+- [ ] Skill-based damage reduction (baby/HMP)
 
-### Phase 5 — Polish
-- [ ] Status bar / HUD (`st_*`, `hu_*`)
-- [ ] Menu (`m_menu`)
-- [ ] Sound (`i_sound`, Web Audio)
-- [ ] Save/load (`p_saveg`) — likely `localStorage` or download
+### Phase 5 — UI / meta
+- [x] Status bar (`StatusBar.js`, `StatusBarFace.js`)
+- [x] Menus (`MenuController.js`) — main, episode, skills, options, load/save
+- [x] Title, level intro (E#M#), wipe melts
+- [~] Intermission — stats + WI patches; **no par times**, no animated map walk
+- [ ] Finale screens (`f_finale.c`)
+- [ ] Center-screen pickup messages (`hu_stuff.c`)
+
+### Phase 6 — Audio
+- [x] SFX (`SoundSystem`, `SfxRegistry`, WAD `DS*` lumps)
+- [x] Music (MUS → OPL3 via `MusParser`, `OplMusicBackend`)
+
+### Phase 7 — Persistence & progression
+- [~] Save/load — JSON in `localStorage` (`SaveGameStore.js`); **not** vanilla `p_saveg` binary
+- [~] Saves: player + things snapshot; **missing** thinkers, sector heights, RNG, line specials state
+- [~] E1 map progression (`MapNames.js`, `nextMapName`)
+- [~] E2–E4 titles sparse; **MAP02+ progression not implemented**
+- [ ] Episode end / boss finale flow
+
+### Phase 8 — Explicit non-goals (unless requested)
+- [ ] Multiplayer (`d_net.c`)
+- [ ] Demo record/playback (`g_game.c`)
+- [ ] Cheats (`m_cheat.c` — idkfa, idclev, idbehold, …)
+- [ ] DeHackEd / BOOM extensions
 
 ---
 
-## 8. Agent Instructions
+## 12. Port status vs vanilla Doom
 
-When working on DoomJS, **always**:
+Last audited: **2026-07-14** against `linuxdoom-1.10`. Re-audit after major features.
 
-1. Read `PROJECT.md` first
-2. Respect SOLID and the layer model — reject changes that import `document`/`window` from `src/game/` or `src/render/`
-3. Keep `index.html` thin; new logic goes in `src/`
-4. Prefer extending the planned module map over inventing ad-hoc file names
-5. Match existing code style in the file being edited
-6. Minimize scope — one subsystem per task
-7. Do not modify `DOOM-master/`
-8. Do not add npm/webpack unless the user explicitly requests a build toolchain
-9. Update Phase checklist when completing a milestone
-10. Update this document if introducing a new subsystem, interface, or convention
+### 12.1 Subsystem maturity
 
-When **unsure where code belongs**, ask:
+```
+Rendering (3D)     █████████░  ~95%   episode skies, automap polish, border patches
+Player / weapons   ████████░░  ~80%   powers, nightmare, attack sprite missing
+Monsters           ██░░░░░░░░  ~15%   3 types vs full Doom 1 bestiary
+Map specials       ████░░░░░░  ~40%   no keys/teleport/crush/lights/stairs
+Items / inventory  ███████░░░  ~70%   pickups yes; power effects mostly stub
+Audio              ████████░░  ~80%   grows with content
+UI / menus         ████████░░  ~80%   no finale; partial intermission
+Saves              ████░░░░░░  ~40%   JSON subset of vanilla save state
+Progression        █████░░░░░  ~50%   E1 ok; E2–4 / Doom II weak
+Multi / demos      ░░░░░░░░░░   0%
+Cheats             ░░░░░░░░░░   0%
+```
 
-> “Which layer owns this data, and which interface should the rest of the engine use to reach it?”
+### 12.2 Done well (vanilla parity acceptable)
 
-If the answer is unclear, propose a class diagram or module list in the PR/task before implementing.
+| Area | Key files | Notes |
+|------|-----------|-------|
+| Map load | `MapLoader.js`, `Level.js` | Standard map lumps |
+| Collision / movement | `MapCollision.js` | Slide, steps, drop-off, gravity, friction, hitscan |
+| Player weapons | `Psprites.js`, `weaponConstants.js`, `Hitscan.js`, `MissileManager.js` | All 8 weapons |
+| Software renderer | `BspRenderer.js`, `WallDrawer.js`, `PlaneDrawer.js`, `BillboardRenderer.js` | Core 3D |
+| Status bar | `StatusBar.js`, `StatusBarFace.js` | Arms widget uses `weaponowned[i+1]` for slot `i` (STGNUM2 = pistol, etc.) |
+| Pickups (touch) | `ItemPickup.js`, `mobjInfo.js` | Broad catalog |
+| Thinkers (subset) | `Doors.js`, `FloorMovers.js`, `Plats.js`, `ThinkerList.js` | Run before movement in `PlaySession.js` |
+| Platform carry | `changeSector` / `thingHeightClip` in `MapCollision.js` | Player moves with lifts |
+| Game loop | `GameLoop.js`, `PlaySession.js` | 35 Hz; order: input → thinkers → XY → Z → weapons → monsters |
+| Audio | `SoundSystem.js`, `MusicSystem.js` | SFX + OPL music |
+| Menus / flow | `Game.js`, `MenuController.js`, `WipeMelt.js` | Title → menu → play → intermission |
+
+### 12.3 Partial — known gaps
+
+#### Player (`p_user.c`, `p_inter.c`, `p_pspr.c`)
+- Light amp not implemented (`pw_infrared` missing from `NUMPOWERS`)
+- Berserk fist damage boost not fully modeled (power granted; palette uses strength tint)
+- No player mobj attack states (`S_PLAY_ATK`) during fire
+- Nightmare: menu skill 5 exists; no respawn/fast logic (`P_NightmareRespawn`, `-1 tics`)
+
+#### Monsters (`p_enemy.c`, `info.c`)
+- **Spawned today:** zombieman (3004), imp (3001), barrel (2035) — see `mobjInfo.js`, `monsterInfo.js`
+- **Missing:** shotgun guy, demon, spectre, lost soul, cacodemon, baron, spider, cyberdemon, … + all `A_*` state actions
+
+#### Line / sector specials (`p_spec.c`, `p_switch.c`)
+
+**Implemented specials (representative):**
+
+| Kind | Line specials (examples) |
+|------|--------------------------|
+| Doors | 1–4, 16, 26–34, 29, 50, 63, 90, 103, 105–110, 111–113, 117–118 |
+| Floors lower | 10, 22, 23, 36, 38, 76, 82, 88, 101–102 |
+| Plats | 14–15, 20–21 |
+| Exits | 11, 51 (use), 52, 124 (cross) |
+
+**Not implemented (blocks many maps):**
+
+| Feature | Vanilla | DoomJS |
+|---------|---------|--------|
+| Key doors | 26–28, 32–34 check `player.cards` | Door movement only — **no key check** in `Doors.js` |
+| Teleports | `p_telept.c`, specials 39, 97, 125, … | Missing |
+| Crushers | `p_ceilng.c`, 41, 49, 71, … | `movePlane` has crush result type; no ceiling thinkers |
+| Stairs / raise floors | 7, 9, 127, … | Missing |
+| Scroll floors | 48, … | Missing (E1M1 slime scroll is cosmetic only) |
+| Dynamic lights | `p_lights.c` | Static sector `lightLevel` only |
+| One-shot buttons | `BUTTONTIME` retrigger rules | Partial via `SwitchList.js` |
+
+See `UseSpecialLine.js`, `CrossSpecialLine.js` for exact `switch` cases.
+
+#### Rendering
+- Single sky texture; no episode SKY2/SKY3
+- Automap: core overlay done; no pan/zoom/follow-mode keys (`am_map.c` full UI)
+- Smaller views lack border flat patches (`R_DrawViewBorder`)
+
+#### Saves (`p_saveg.c`)
+- Format: JSON v1 in `Game.serializeSave()` / `deserializeSave()`
+- Does not restore: door/floor/plat thinkers, sector floor/ceiling heights, missiles, RNG, cleared line specials
+
+#### Progression (`g_game.c`, `wi_stuff.c`)
+- `nextMapName()` handles `E#M#` only — not `MAP02`, `MAP03`, …
+- `titleForMap()` has E1 names only
+- No `f_finale.c` (bunny, cast, text)
+
+### 12.4 Missing entirely
+
+| Vanilla module | Purpose |
+|----------------|---------|
+| `d_net.c` | Multiplayer |
+| `g_game.c` demos | `-playdemo` / `-recorddemo` |
+| `m_cheat.c` | Cheat codes |
+| `p_telept.c` | Teleport lines |
+| `p_ceilng.c` | Crushing ceilings |
+| `p_lights.c` | Flicker / strobe / glow |
+| `am_map.c` | Automap |
+| `f_finale.c` | Episode end sequences |
+| `hu_stuff.c` | HUD messages ("Picked up a clip") |
 
 ---
 
-## 9. Local Development
+## 13. Priority roadmap
 
-Open directly:
+Use this when choosing what to port next. Goal: **complete Doom 1 (shareware + registered)** before Doom II polish.
+
+| Priority | Task | Why | Primary files / C ref |
+|----------|------|-----|------------------------|
+| P0 | **Key-locked doors** | Blocks progression on E1M2+ | `Doors.js`, `PlayerCards.js` · `p_doors.c`, specials 26–28 |
+| P0 | **Teleports** | Many maps | new `Teleports.js` · `p_telept.c` |
+| P1 | **Power-ups** | Gameplay completeness | `ItemPickup.js`, `PlayerPowers.js` · `p_inter.c` |
+| P1 | **Shotgun guy + demon** | E1 combat | `mobjInfo.js`, `monsterInfo.js`, states · `p_enemy.c` |
+| P2 | **Crushing ceilings** | E1M3-style traps | new ceiling thinkers · `p_ceilng.c` |
+| P2 | **Raise floor / stairs** | Unlocks geometry | `FloorMovers.js` · `p_floor.c`, `p_spec.c` |
+| P2 | **Spectre spawn** | E1M9 | `mobjInfo.js` — fuzz draw done (`MF_SHADOW`) |
+| P3 | **Automap polish** | Pan/zoom/keys | `Automap.js` · `am_map.c` full UI |
+| P3 | **Save completeness** | Thinkers + sectors | `Game.js`, `SaveGameStore.js` · `p_saveg.c` |
+| P3 | **E2–E4 names + progression** | Full Doom 1 | `MapNames.js`, `Game.js` |
+| P4 | **More monsters** | E2+ | `monsterInfo.js`, `mobjInfo.js` |
+| P4 | **Cheats** | Dev/QOL | new module · `m_cheat.c` |
+| P4 | **Finale screens** | Episode end | new scene · `f_finale.c` |
+| P5 | **Doom II MAP## progression** | Commercial WAD | `MapNames.js`, `Gamemode.js` |
+| — | Multiplayer, demos, DeHackEd | Only if explicitly requested | — |
+
+---
+
+## 14. Key file map
+
+| If you need to… | Start here |
+|-----------------|------------|
+| Change tic order / what runs per frame | `PlaySession.js` |
+| Player move, bob, view | `PlayerMovement.js` |
+| Collision, slide, fall, hitscan | `MapCollision.js` |
+| Weapons / firing | `Psprites.js`, `weaponConstants.js` |
+| Pickups / give weapon | `ItemPickup.js` |
+| Line use specials | `UseSpecialLine.js`, `UseLines.js` |
+| Line cross specials | `CrossSpecialLine.js` |
+| Doors | `Doors.js` |
+| Floors / plats | `FloorMovers.js`, `Plats.js` |
+| Monster AI | `MonsterThink.js`, `EnemyMove.js` |
+| Projectiles | `MissileManager.js`, `missileInfo.js` |
+| Render one frame | `Game.js` → `BspRenderer.js` |
+| HUD | `StatusBar.js` |
+| Menus | `MenuController.js` |
+| Level load / start / exit | `Game.js`, `MapLoader.js` |
+| Save / load | `Game.js`, `SaveGameStore.js` |
+| Constants (GRAVITY, flags, …) | `core/gameConstants.js`, `game/mobjFlags.js` |
+| Map thing → mobj | `mobjInfo.js`, `MapThingSpawner.js` |
+
+### PlaySession tick order (reference)
 
 ```
-DoomJS/index.html
+PlayerMovement.move (if alive)
+thinkers.runAll()          // doors, floors, plats
+collision.xyMovement
+collision.zMovement
+PlayerMovement.calcHeight
+tickPlayerPowers + sector damage
+thinkUse + thinkWeaponChange
+psprites.think
+tickMonsters
+missiles.tick
+// stats: kills, items, secrets
 ```
 
-Or serve statically (needed once ES modules load separate files):
+---
+
+## 8. Agent instructions
+
+When working on DoomJS:
+
+1. Read this file — especially **§12** and **§13**
+2. Respect SOLID and the layer model
+3. Keep `index.html` thin; logic in `src/`
+4. Minimize scope — one subsystem per task
+5. Do **not** modify `DOOM-master/`
+6. Do **not** add npm/webpack unless the user requests it
+7. Update **§7**, **§12**, and **§15** when completing port milestones
+
+When unsure where code belongs: *Which layer owns this data, and which interface should the rest of the engine use?*
+
+---
+
+## 9. Local development
 
 ```powershell
 cd "DoomJS"
@@ -245,21 +416,37 @@ python -m http.server 8080
 # → http://localhost:8080
 ```
 
+User supplies a legally obtained IWAD (e.g. `doom.wad`). File picker available if default fetch fails.
+
 ---
 
-## 10. Non-Goals (Unless Requested)
+## 10. Non-goals (unless requested)
 
-- Multiplayer / `d_net` networking
+- Multiplayer / `d_net`
 - Node.js server port
 - TypeScript migration
-- Asset extraction from commercial IWADs (user supplies their own legally obtained WAD)
-- Pixel-shader remasters or non-faithful gameplay tweaks
+- Bundling commercial IWAD assets into the repo
+- Non-faithful gameplay tweaks
 
 ---
 
-## 11. Changelog
+## 15. Changelog
 
 | Date | Change |
 |------|--------|
-| 2026-07-12 | Initial project guide; Phase 0 canvas shell complete |
+| 2026-07-12 | Initial project guide; Phase 0 canvas shell |
 | 2026-07-12 | Player movement: GameLoop, KeyboardInput, MapCollision, PlaySession |
+| 2026-07-14 | Major port audit documented in §12–§14; phase checklist corrected to match codebase |
+| 2026-07-14 | Vanilla Z movement (gravity/fall); all 8 weapons; HUD arms index fix (`weaponowned[i+1]`) |
+
+---
+
+## Appendix A — Vanilla line special checklist
+
+When implementing a new special, add a case to `UseSpecialLine.js` and/or `CrossSpecialLine.js`, then register in this appendix.
+
+**Use specials in vanilla (`p_switch.c` P_UseSpecialLine) not yet in DoomJS (sample):** 7, 9, 18, 41, 42, 43, 45, 49, 55, 60–62, 64–70, 71, 122, 127, 131, 133, 135, 137, 140, …
+
+**Cross specials not yet in DoomJS (sample):** 39, 48, 56, 57, 58, 59, 72, 73, 74, 75, 77, 79, 80, 81, 84, 86, 87, 89, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, …
+
+Always verify against `p_switch.c` in the reference tree — the authoritative list is the big `switch` statements there.

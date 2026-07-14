@@ -1,7 +1,8 @@
-import { FRACBITS, FRACUNIT, VIEWHEIGHT } from '../core/renderConstants.js';
+import { FRACBITS, FRACUNIT } from '../core/renderConstants.js';
 import { ANG45, fineAngleIndex } from '../core/angles.js';
 import { fixedDiv, fixedMul } from '../math/fixed.js';
 import { SPR_PUFF } from '../game/weapons/weaponConstants.js';
+import { MF_SHADOW } from '../game/mobjFlags.js';
 import { mapSpriteLumpName } from '../wad/SpritePatches.js';
 import { computeSpriteClip, renderMaskedSegsBehindSprite } from './SpriteClipper.js';
 import { pointToAngle } from '../math/viewMath.js';
@@ -14,21 +15,21 @@ const SPRITE_MINZ = FRACUNIT * 4;
 
 /**
  * r_things.c projects sprites without rejecting on screen Y; only columns are
- * clipped during draw. Rejecting when the mobj anchor is below the view (common
- * up close) incorrectly hid entire enemies.
- * @param {{ x1: number, x2: number, y: number, scale: number }} projected
+ * clipped during draw.
+ * @param {{ x1: number, x2: number, texturemid: number }} projected
  * @param {import('./PatchRenderer.js').PatchHeader} patch
  * @param {number} viewHeight
  * @param {number} viewWidth
+ * @param {number} centerYFrac
+ * @param {number} verticalScale
  */
-function spriteIntersectsView(projected, patch, viewHeight, viewWidth) {
-  if (projected.x2 < 0 || projected.x1 >= viewWidth || projected.scale <= 0) {
+function spriteIntersectsView(projected, patch, viewHeight, viewWidth, centerYFrac, verticalScale) {
+  if (projected.x2 < 0 || projected.x1 >= viewWidth || verticalScale <= 0) {
     return false;
   }
 
-  const scale = projected.scale;
-  const topY = projected.y - ((patch.topOffset * scale) >> FRACBITS);
-  const bottomY = projected.y + (((patch.height - patch.topOffset) * scale) >> FRACBITS);
+  const topY = (centerYFrac - fixedMul(projected.texturemid, verticalScale)) >> FRACBITS;
+  const bottomY = topY + ((patch.height * verticalScale) >> FRACBITS);
   return topY < viewHeight && bottomY >= 0;
 }
 
@@ -124,19 +125,34 @@ export class BillboardRenderer {
         viewSin,
         patch,
       );
-      if (!projected || !spriteIntersectsView(projected, patch.header, VIEWHEIGHT, viewSetup.viewWidth)) {
+      if (!projected) {
         continue;
       }
 
-      const { clipbot, cliptop } = computeSpriteClip(projected, drawSegs, drawSegCount, VIEWHEIGHT);
+      const scaleV = projected.scale;
+      const scaleH = projected.xscale;
+      if (!spriteIntersectsView(
+        projected,
+        patch.header,
+        viewSetup.viewHeight,
+        viewSetup.viewWidth,
+        viewSetup.centerYFrac,
+        scaleV,
+      )) {
+        continue;
+      }
+
+      const { clipbot, cliptop } = computeSpriteClip(projected, drawSegs, drawSegCount, viewSetup.viewHeight);
       renderMaskedSegsBehindSprite(projected, drawSegs, drawSegCount, wallDrawer);
       this.renderer.drawPatchScaled(
         projected.x,
-        projected.y,
+        projected.texturemid,
         patch.header,
         patch.data,
         colormap,
-        projected.scale,
+        scaleV,
+        scaleH,
+        viewSetup.centerYFrac,
         clipbot,
         cliptop,
         projected.x1,
@@ -201,31 +217,62 @@ export class BillboardRenderer {
         viewSin,
         patch,
       );
-      if (!projected || !spriteIntersectsView(projected, patch.header, VIEWHEIGHT, viewSetup.viewWidth)) {
+      if (!projected) {
         continue;
       }
 
-      visible.push({ thing, patch, projected, flip });
+      const scaleV = projected.scale;
+      const scaleH = projected.xscale;
+      if (!spriteIntersectsView(
+        projected,
+        patch.header,
+        viewSetup.viewHeight,
+        viewSetup.viewWidth,
+        viewSetup.centerYFrac,
+        scaleV,
+      )) {
+        continue;
+      }
+
+      visible.push({ thing, patch, projected, flip, scaleH, scaleV });
     }
 
     visible.sort((a, b) => b.projected.distance - a.projected.distance);
 
     for (const entry of visible) {
       const useColormap = entry.thing.fullbright ? fullbright : colormap;
-      const { clipbot, cliptop } = computeSpriteClip(entry.projected, drawSegs, drawSegCount, VIEWHEIGHT);
+      const { clipbot, cliptop } = computeSpriteClip(entry.projected, drawSegs, drawSegCount, viewSetup.viewHeight);
       renderMaskedSegsBehindSprite(entry.projected, drawSegs, drawSegCount, wallDrawer);
-      this.renderer.drawPatchScaled(
-        entry.projected.x,
-        entry.projected.y,
-        entry.patch.header,
-        entry.patch.data,
-        useColormap,
-        entry.projected.scale,
-        clipbot,
-        cliptop,
-        entry.projected.x1,
-        entry.flip,
-      );
+      if (entry.thing.flags & MF_SHADOW) {
+        this.renderer.drawPatchScaledFuzz(
+          entry.projected.x,
+          entry.projected.texturemid,
+          entry.patch.header,
+          entry.patch.data,
+          entry.scaleV,
+          entry.scaleH,
+          viewSetup.centerYFrac,
+          clipbot,
+          cliptop,
+          entry.projected.x1,
+          entry.flip,
+        );
+      } else {
+        this.renderer.drawPatchScaled(
+          entry.projected.x,
+          entry.projected.texturemid,
+          entry.patch.header,
+          entry.patch.data,
+          useColormap,
+          entry.scaleV,
+          entry.scaleH,
+          viewSetup.centerYFrac,
+          clipbot,
+          cliptop,
+          entry.projected.x1,
+          entry.flip,
+        );
+      }
     }
   }
 
@@ -259,7 +306,6 @@ export class BillboardRenderer {
       return null;
     }
 
-    // x/y are the mobj anchor on screen; drawPatchScaled applies left/top offset.
     const screenX = (viewSetup.centerXFrac + fixedMul(tx, xscale)) >> FRACBITS;
     const left = (viewSetup.centerXFrac + fixedMul(tx - (patch.header.leftOffset << FRACBITS), xscale)) >> FRACBITS;
     const right = (viewSetup.centerXFrac + fixedMul(
@@ -271,16 +317,15 @@ export class BillboardRenderer {
       return null;
     }
 
-    const gzt = z - view.z;
-    const screenY = (viewSetup.centerYFrac - fixedMul(gzt, xscale)) >> FRACBITS;
     const spriteTopZ = z + (patch.header.topOffset << FRACBITS);
 
     return {
       x: screenX,
-      y: screenY,
       x1: left,
       x2: right,
-      scale: xscale,
+      xscale,
+      scale: xscale << viewSetup.detailShift,
+      texturemid: (z - view.z) + (patch.header.topOffset << FRACBITS),
       distance: tz,
       gx: x,
       gy: y,

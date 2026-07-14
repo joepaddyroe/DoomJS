@@ -133,7 +133,7 @@ async function start() {
     output.present(renderer.pixels);
 
     console.log(
-      `DoomJS ${BUILD_TAG} — WASD move, mouse look, LMB fire, RMB use. `
+      `DoomJS ${BUILD_TAG} — WASD move, mouse look, LMB fire, RMB use, Tab toggles automap. `
       + `Sound: ${soundSystem?.driverId ?? 'none'} (?sound=webaudio|howler|null). `
       + `${output.gameWidth}×${output.gameHeight} @ ${output.pixelScale}×.`,
     );

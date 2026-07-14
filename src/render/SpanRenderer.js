@@ -93,9 +93,8 @@ export class SpanRenderer {
     let xfrac = dsXfrac;
     let yfrac = dsYfrac;
     const doubledX1 = dsX1 << 1;
-    const doubledX2 = dsX2 << 1;
     let dest = this.buffer.viewColumnOffset(doubledX1, dsY);
-    let count = doubledX2 - doubledX1;
+    let count = dsX2 - dsX1;
 
     do {
       const spot = this.flatSpot(xfrac, yfrac);

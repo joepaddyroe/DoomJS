@@ -181,13 +181,14 @@ export function scaleFromGlobalAngle(
   rwDistance,
   projection,
   finesine,
+  detailShift = 0,
 ) {
   let angleA = (ANG90 + (visAngle - viewAngle)) >>> 0;
   let angleB = (ANG90 + (visAngle - rwNormalAngle)) >>> 0;
 
   const sineA = finesine[(angleA >>> 0) >> ANGLETOFINESHIFT];
   const sineB = finesine[(angleB >>> 0) >> ANGLETOFINESHIFT];
-  let num = fixedMul(projection, sineB);
+  let num = fixedMul(projection, sineB) << detailShift;
   const den = fixedMul(rwDistance, sineA);
 
   if (den > num >> 16) {

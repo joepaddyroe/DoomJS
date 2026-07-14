@@ -25,7 +25,7 @@ export class BspRenderer {
    * @param {{ x: number, y: number, z: number, angle: number, extralight?: number }} view
    */
   renderView(view) {
-    this.ctx.softwareRenderer.clear(0);
+    this.ctx.softwareRenderer.clearView(0);
     this.ctx.setView(view);
     this.ctx.extralight = view.extralight ?? 0;
     this.ctx.beginFrame();
@@ -36,5 +36,15 @@ export class BspRenderer {
       : -1;
     this.bsp.renderNode(root);
     this.planes.drawPlanes();
+  }
+
+  /**
+   * @param {number} viewWidth
+   * @param {number} viewHeight
+   * @param {number} detailShift
+   */
+  resizeView(viewWidth, viewHeight, detailShift) {
+    this.ctx.resize(viewWidth, viewHeight, detailShift);
+    this.planes = new PlaneDrawer(this.ctx);
   }
 }

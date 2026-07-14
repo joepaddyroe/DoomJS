@@ -3,7 +3,8 @@
  */
 
 import { FRACBITS, FRACUNIT } from '../core/renderConstants.js';
-import { fixedDiv } from '../math/fixed.js';
+import { fixedDiv, fixedMul } from '../math/fixed.js';
+import { FUZZTABLE, FUZZTABLE_SIZE } from './fuzzTable.js';
 
 /**
  * @typedef {Object} PatchHeader
@@ -160,49 +161,72 @@ export class PatchRenderer {
 
   /**
    * Draw a patch scaled in fixed-point (r_things.c — R_DrawVisSprite / R_DrawMaskedColumn).
-   * @param {number} x Mobj anchor X (offset applied here)
-   * @param {number} y Mobj anchor Y (offset applied here)
+   * Coordinates are view-relative (0..logicalViewWidth); the view window offset is applied here.
+   * @param {import('./ViewBuffer.js').ViewBuffer} buffer
+   * @param {number} x Mobj anchor X in view space
+   * @param {number} texturemid Vertical anchor in world Z (r_things.c — vis->texturemid)
    * @param {PatchHeader} patch
    * @param {Uint8Array} patchData
    * @param {Uint8Array|null} colormap
-   * @param {number} scale Fixed-point scale (FRACUNIT = 1:1)
+   * @param {number} scaleV Vertical fixed-point scale (includes detail shift)
+   * @param {number} scaleH Horizontal fixed-point scale (projection scale)
+   * @param {number} centerYFrac
+   * @param {number} detailShift
+   * @param {number} logicalViewWidth
+   * @param {number} viewHeight
    * @param {Int16Array|null} [clipbot]
    * @param {Int16Array|null} [cliptop]
    * @param {number} [clipX1=0]
    * @param {boolean} [flip=false]
    */
-  drawPatchScaled(x, y, patch, patchData, colormap, scale, clipbot = null, cliptop = null, clipX1 = 0, flip = false) {
-    if (scale <= 0) {
+  drawPatchScaled(
+    buffer,
+    x,
+    texturemid,
+    patch,
+    patchData,
+    colormap,
+    scaleV,
+    scaleH,
+    centerYFrac,
+    detailShift,
+    logicalViewWidth,
+    viewHeight,
+    clipbot = null,
+    cliptop = null,
+    clipX1 = 0,
+    flip = false,
+  ) {
+    if (scaleV <= 0 || scaleH <= 0) {
       return;
     }
 
-    const screenWidth = this.buffer.screenWidth;
-    const screenHeight = this.buffer.screenHeight;
-    const pixels = this.buffer.pixels;
-    const destWidth = (patch.width * scale) >> FRACBITS;
+    const pixels = buffer.pixels;
+    const destWidth = (patch.width * scaleH) >> FRACBITS;
     if (destWidth <= 0) {
       return;
     }
 
-    const startX = x - ((patch.leftOffset * scale) >> FRACBITS);
-    const sprtopscreen = (y - ((patch.topOffset * scale) >> FRACBITS)) << FRACBITS;
-    const xiscale = fixedDiv(FRACUNIT, scale);
+    const startX = x - ((patch.leftOffset * scaleH) >> FRACBITS);
+    const sprtopscreen = centerYFrac - fixedMul(texturemid, scaleV);
+    const xiscale = fixedDiv(FRACUNIT, scaleH);
     let frac = flip ? (patch.width - 1) << FRACBITS : 0;
     const fracStep = flip ? -xiscale : xiscale;
 
     for (let destCol = 0; destCol < destWidth; destCol++) {
-      const screenX = startX + destCol;
-      const srcCol = Math.min(patch.width - 1, Math.max(0, frac >> FRACBITS));
-      frac += fracStep;
-
-      if (screenX < 0 || screenX >= screenWidth) {
+      const viewX = startX + destCol;
+      if (viewX < 0 || viewX >= logicalViewWidth) {
+        frac += fracStep;
         continue;
       }
 
-      let floorClip = screenHeight;
+      const srcCol = Math.min(patch.width - 1, Math.max(0, frac >> FRACBITS));
+      frac += fracStep;
+
+      let floorClip = viewHeight;
       let ceilingClip = -1;
       if (clipbot && cliptop) {
-        const clipIdx = screenX - clipX1;
+        const clipIdx = viewX - clipX1;
         if (clipIdx < 0 || clipIdx >= clipbot.length) {
           continue;
         }
@@ -210,14 +234,15 @@ export class PatchRenderer {
         ceilingClip = cliptop[clipIdx];
       }
 
+      const bufferX = viewX << detailShift;
       let columnOffset = patch.columnOffsets[srcCol];
       let topDelta = patchData[columnOffset];
 
       while (topDelta !== 0xff) {
         const length = patchData[columnOffset + 1];
         const sourceIndex = columnOffset + 3;
-        const topFixed = sprtopscreen + scale * topDelta;
-        const bottomFixed = topFixed + scale * length;
+        const topFixed = sprtopscreen + scaleV * topDelta;
+        const bottomFixed = topFixed + scaleV * length;
         let dcYl = (topFixed + FRACUNIT - 1) >> FRACBITS;
         let dcYh = (bottomFixed - 1) >> FRACBITS;
 
@@ -231,8 +256,8 @@ export class PatchRenderer {
         if (dcYl < 0) {
           dcYl = 0;
         }
-        if (dcYh >= screenHeight) {
-          dcYh = screenHeight - 1;
+        if (dcYh >= viewHeight) {
+          dcYh = viewHeight - 1;
         }
         if (dcYl > dcYh) {
           columnOffset += length + 4;
@@ -240,13 +265,151 @@ export class PatchRenderer {
           continue;
         }
 
+        let dest = buffer.viewColumnOffset(bufferX, dcYl);
+        const screenWidth = buffer.screenWidth;
         for (let screenY = dcYl; screenY <= dcYh; screenY++) {
           const srcRow = Math.min(
             length - 1,
-            Math.max(0, ((screenY << FRACBITS) - topFixed) / scale | 0),
+            Math.max(0, ((screenY << FRACBITS) - topFixed) / scaleV | 0),
           );
           const color = patchData[sourceIndex + srcRow];
-          pixels[screenY * screenWidth + screenX] = colormap ? colormap[color] : color;
+          pixels[dest] = colormap ? colormap[color] : color;
+          if (detailShift) {
+            pixels[dest + 1] = colormap ? colormap[color] : color;
+          }
+          dest += screenWidth;
+        }
+
+        columnOffset += length + 4;
+        topDelta = patchData[columnOffset];
+      }
+    }
+  }
+
+  /**
+   * Scaled sprite draw with spectre fuzz (r_things.c — colfunc = R_DrawFuzzColumn).
+   * @param {number} x
+   * @param {number} texturemid
+   * @param {PatchHeader} patch
+   * @param {Uint8Array} patchData
+   * @param {Uint8Array} colormaps
+   * @param {number} scaleV
+   * @param {number} scaleH
+   * @param {import('./ColumnRenderer.js').ColumnRenderer} columns
+   * @param {number} centerYFrac
+   * @param {number} detailShift
+   * @param {number} logicalViewWidth
+   * @param {number} viewHeight
+   * @param {Int16Array|null} [clipbot]
+   * @param {Int16Array|null} [cliptop]
+   * @param {number} [clipX1=0]
+   * @param {boolean} [flip=false]
+   */
+  drawPatchScaledFuzz(
+    buffer,
+    x,
+    texturemid,
+    patch,
+    patchData,
+    colormaps,
+    scaleV,
+    scaleH,
+    columns,
+    centerYFrac,
+    detailShift,
+    logicalViewWidth,
+    viewHeight,
+    clipbot = null,
+    cliptop = null,
+    clipX1 = 0,
+    flip = false,
+  ) {
+    if (scaleV <= 0 || scaleH <= 0) {
+      return;
+    }
+
+    const pixels = buffer.pixels;
+    const destWidth = (patch.width * scaleH) >> FRACBITS;
+    if (destWidth <= 0) {
+      return;
+    }
+
+    const fuzzColormap = colormaps.subarray(6 * 256, 7 * 256);
+    const startX = x - ((patch.leftOffset * scaleH) >> FRACBITS);
+    const sprtopscreen = centerYFrac - fixedMul(texturemid, scaleV);
+    const xiscale = fixedDiv(FRACUNIT, scaleH);
+    let frac = flip ? (patch.width - 1) << FRACBITS : 0;
+    const fracStep = flip ? -xiscale : xiscale;
+
+    for (let destCol = 0; destCol < destWidth; destCol++) {
+      const viewX = startX + destCol;
+      if (viewX < 0 || viewX >= logicalViewWidth) {
+        frac += fracStep;
+        continue;
+      }
+
+      const srcCol = Math.min(patch.width - 1, Math.max(0, frac >> FRACBITS));
+      frac += fracStep;
+
+      let floorClip = viewHeight;
+      let ceilingClip = -1;
+      if (clipbot && cliptop) {
+        const clipIdx = viewX - clipX1;
+        if (clipIdx < 0 || clipIdx >= clipbot.length) {
+          continue;
+        }
+        floorClip = clipbot[clipIdx];
+        ceilingClip = cliptop[clipIdx];
+      }
+
+      let columnOffset = patch.columnOffsets[srcCol];
+      let topDelta = patchData[columnOffset];
+
+      while (topDelta !== 0xff) {
+        const length = patchData[columnOffset + 1];
+        const topFixed = sprtopscreen + scaleV * topDelta;
+        const bottomFixed = topFixed + scaleV * length;
+        let dcYl = (topFixed + FRACUNIT - 1) >> FRACBITS;
+        let dcYh = (bottomFixed - 1) >> FRACBITS;
+
+        if (dcYh >= floorClip) {
+          dcYh = floorClip - 1;
+        }
+        if (dcYl <= ceilingClip) {
+          dcYl = ceilingClip + 1;
+        }
+
+        if (dcYl < 0) {
+          dcYl = 0;
+        }
+        if (dcYh >= viewHeight) {
+          dcYh = viewHeight - 1;
+        }
+        if (dcYl > dcYh) {
+          columnOffset += length + 4;
+          topDelta = patchData[columnOffset];
+          continue;
+        }
+
+        const sourceIndex = columnOffset + 3;
+        let dest = buffer.viewColumnOffset(viewX << detailShift, dcYl);
+        const screenWidth = buffer.screenWidth;
+        for (let screenY = dcYl; screenY <= dcYh; screenY++) {
+          const srcRow = Math.min(
+            length - 1,
+            Math.max(0, ((screenY << FRACBITS) - topFixed) / scaleV | 0),
+          );
+          if (patchData[sourceIndex + srcRow] !== 0) {
+            const fuzzOffset = FUZZTABLE[columns.fuzzPos];
+            pixels[dest] = fuzzColormap[pixels[dest + fuzzOffset]];
+            if (detailShift) {
+              pixels[dest + 1] = fuzzColormap[pixels[dest + 1 + fuzzOffset]];
+            }
+            if (++columns.fuzzPos === FUZZTABLE_SIZE) {
+              columns.fuzzPos = 0;
+            }
+          }
+          dest += screenWidth;
         }
 
         columnOffset += length + 4;
