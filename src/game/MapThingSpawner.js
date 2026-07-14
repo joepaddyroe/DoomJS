@@ -118,6 +118,7 @@ export function spawnMapThing(level, thing) {
     subsector,
     momx: 0,
     momy: 0,
+    momz: 0,
     target: null,
     threshold: 0,
     movedir: DI_NODIR,

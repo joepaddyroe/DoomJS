@@ -2,13 +2,31 @@ import { fineAngleIndex } from '../../core/angles.js';
 import { FRACUNIT } from '../../core/renderConstants.js';
 import { gameRandom } from '../GameRandom.js';
 import { tryDropItem } from '../ItemDrop.js';
-import { MF_CORPSE, MF_DROPOFF, MF_JUSTHIT, MF_SHOOTABLE, MF_SOLID } from '../mobjFlags.js';
+import {
+  MF_CORPSE,
+  MF_DROPOFF,
+  MF_FLOAT,
+  MF_JUSTHIT,
+  MF_SHOOTABLE,
+  MF_SOLID,
+} from '../mobjFlags.js';
 import { fixedMul } from '../../math/fixed.js';
 import { createTrigTables } from '../../math/tables.js';
 import { pointToAngle2 } from '../../math/viewMath.js';
 import { MONSTER_ARCHETYPES } from './monsterInfo.js';
 
 const tables = createTrigTables();
+
+/** @type {((target: import('../MapThingSpawner.js').MapThingMobj, stateName: string, ctx: object) => void)|null} */
+let enterMobjState = null;
+
+/**
+ * Register death/pain state entry with action functions (MonsterThink).
+ * @param {typeof enterMobjState} fn
+ */
+export function registerEnterMobjState(fn) {
+  enterMobjState = fn;
+}
 
 /**
  * @param {import('../MapThingSpawner.js').MapThingMobj} mobj
@@ -35,31 +53,37 @@ export function setMobjState(mobj, stateName) {
 /**
  * @param {import('../MapThingSpawner.js').MapThingMobj} target
  * @param {import('../Mobj.js').Mobj|null} source
+ * @param {object|null} [deathCtx]
  */
-export function killMobj(target, source) {
+export function killMobj(target, source, deathCtx = null) {
   const arch = MONSTER_ARCHETYPES[target.monsterType];
   if (!arch) {
     return;
   }
 
-  target.flags &= ~(MF_SHOOTABLE);
+  target.flags &= ~(MF_SHOOTABLE | MF_FLOAT);
   target.flags |= MF_CORPSE | MF_DROPOFF;
   target.flags &= ~MF_SOLID;
   if (target.monsterType !== 'barrel') {
     target.height = (target.height / 4) | 0;
   }
 
-  if (target.health < -arch.spawnhealth && arch.xdeathState) {
-    target.pendingState = arch.xdeathState;
-  } else {
-    target.pendingState = arch.deathState;
-  }
+  const stateName = target.health < -arch.spawnhealth && arch.xdeathState
+    ? arch.xdeathState
+    : arch.deathState;
 
-  if (target.stateTics > 0) {
-    target.stateTics -= gameRandom() & 3;
-    if (target.stateTics < 1) {
-      target.stateTics = 1;
-    }
+  target.pendingState = null;
+
+  if (enterMobjState && deathCtx) {
+    enterMobjState(target, stateName, deathCtx);
+  } else {
+    setMobjState(target, stateName);
+  }
+  target.stateEntered = true;
+
+  target.stateTics -= gameRandom() & 3;
+  if (target.stateTics < 1) {
+    target.stateTics = 1;
   }
 }
 
@@ -70,8 +94,9 @@ export function killMobj(target, source) {
  * @param {number} damage
  * @param {import('../Player.js').Player} player
  * @param {{ level: import('../Level.js').Level, things: import('../MapThingSpawner.js').MapThingMobj[] }|null} [dropCtx]
+ * @param {object|null} [deathCtx]
  */
-export function damageMobj(target, inflictor, source, damage, player, dropCtx = null) {
+export function damageMobj(target, inflictor, source, damage, player, dropCtx = null, deathCtx = null) {
   if (!(target.flags & MF_SHOOTABLE)) {
     return;
   }
@@ -121,7 +146,7 @@ export function damageMobj(target, inflictor, source, damage, player, dropCtx = 
 
   target.health -= damage;
   if (target.health <= 0) {
-    killMobj(target, source);
+    killMobj(target, source, deathCtx);
     if (dropCtx) {
       tryDropItem(target, dropCtx.level, dropCtx.things);
     }

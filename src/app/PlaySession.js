@@ -12,6 +12,7 @@ import { MissileManager } from '../game/monster/MissileManager.js';
 import { buildSwitchPairs } from '../game/spec/SwitchList.js';
 import { MF_COUNTITEM, MF_COUNTKILL } from '../game/mobjFlags.js';
 import { tickPlayerPowers, thinkPlayerSpecialSector } from '../game/PlayerPowers.js';
+import { tickCorpseDebug } from '../game/debug/CorpseDebug.js';
 
 /**
  * Active play state: player simulation + view for rendering.
@@ -91,17 +92,23 @@ export class PlaySession {
     thinkPlayerSpecialSector(player);
     thinkUse(player, this.specCtx, collision);
     thinkWeaponChange(player);
-    this.psprites.think(player);
-    tickMonsters(this.things, {
+
+    const monsterCtx = {
       player,
       collision,
       hitscan: this.hitscan,
       missiles: this.missiles,
       things: this.things,
       sound: this.specCtx.sound,
-    });
+    };
+    this.hitscan.monsterDeathCtx = monsterCtx;
+    this.missiles.monsterDeathCtx = monsterCtx;
+
+    this.psprites.think(player);
+    tickMonsters(this.things, monsterCtx);
     this.missiles.tick(player);
     this.puffs.tick();
+    tickCorpseDebug(this.things);
 
     // Update intermission counters.
     for (const thing of this.things) {

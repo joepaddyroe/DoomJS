@@ -21,6 +21,8 @@ export class Hitscan {
     this.player = player;
     this.tables = createTrigTables();
     this.bulletSlope = 0;
+    /** @type {import('./monster/MonsterThink.js').MonsterContext|null} */
+    this.monsterDeathCtx = null;
   }
 
   /** @param {import('./Mobj.js').Mobj|import('./MapThingSpawner.js').MapThingMobj} mo */
@@ -105,7 +107,15 @@ export class Hitscan {
         damage,
         onThingHit: (thing, x, y, z) => {
           if (this.player) {
-            damageMobj(thing, mo, mo, damage, this.player, this.collision.dropCtx);
+            damageMobj(
+              thing,
+              mo,
+              mo,
+              damage,
+              this.player,
+              this.collision.dropCtx,
+              this.monsterDeathCtx,
+            );
           }
           this.puffs.spawn(x, y, z);
           thingHit = { x, y, thing };

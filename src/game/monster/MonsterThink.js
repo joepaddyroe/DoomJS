@@ -2,7 +2,7 @@ import { ANG90 } from '../../core/angles.js';
 import { gameRandom } from '../GameRandom.js';
 import { MF_JUSTATTACKED, MF_SHOOTABLE, MF_SOLID, MF_AMBUSH } from '../mobjFlags.js';
 import { MISSILERANGE } from '../weapons/weaponConstants.js';
-import { damageMobj, setMobjState } from './MobjCombat.js';
+import { damageMobj, registerEnterMobjState, setMobjState } from './MobjCombat.js';
 import {
   checkMeleeRange,
   checkMissileRange,
@@ -191,7 +191,7 @@ function aTroopAttack(actor, ctx) {
   if (checkMeleeRange(actor, ctx.collision)) {
     ctx.sound?.start(actor.monsterDef.attackSound ?? 'claw');
     const damage = (gameRandom() % 8 + 1) * 3;
-    damageMobj(actor.target, actor, actor, damage, ctx.player, ctx.collision.dropCtx);
+    damageMobj(actor.target, actor, actor, damage, ctx.player, ctx.collision.dropCtx, ctx);
     return;
   }
 
@@ -232,7 +232,7 @@ function aXScream(actor, ctx) {
  * @param {MonsterContext} ctx
  */
 function aExplode(actor, ctx) {
-  radiusAttack(actor, actor.target ?? null, 128, ctx.things, ctx.collision, ctx.player);
+  radiusAttack(actor, actor.target ?? null, 128, ctx.things, ctx.collision, ctx.player, ctx);
 }
 
 const ACTIONS = {
@@ -299,8 +299,6 @@ export function tickMonsters(things, ctx) {
       continue;
     }
 
-    tickMonsterState(thing, ctx);
-
     if (thing.momx || thing.momy) {
       ctx.collision.xyMovement(thing, null);
     }
@@ -308,5 +306,9 @@ export function tickMonsters(things, ctx) {
     if (thing.z !== thing.floorz || thing.momz) {
       ctx.collision.mobjZMovement(thing);
     }
+
+    tickMonsterState(thing, ctx);
   }
 }
+
+registerEnterMobjState(enterState);

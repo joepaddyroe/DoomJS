@@ -11,8 +11,9 @@ import { checkSight } from './Sight.js';
  * @param {import('../MapThingSpawner.js').MapThingMobj[]} things
  * @param {import('../MapCollision.js').MapCollision} collision
  * @param {import('../Player.js').Player} player
+ * @param {object|null} [deathCtx]
  */
-export function radiusAttack(spot, source, damage, things, collision, player) {
+export function radiusAttack(spot, source, damage, things, collision, player, deathCtx = null) {
   for (const thing of things) {
     if (thing === spot || thing.removed || !(thing.flags & MF_SHOOTABLE)) {
       continue;
@@ -31,7 +32,7 @@ export function radiusAttack(spot, source, damage, things, collision, player) {
     if (!checkSight(thing, spot, collision)) {
       continue;
     }
-    damageMobj(thing, spot, source, damage - dist, player, collision.dropCtx);
+    damageMobj(thing, spot, source, damage - dist, player, collision.dropCtx, deathCtx);
   }
 
   const mo = player.mo;

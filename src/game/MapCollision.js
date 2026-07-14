@@ -354,6 +354,15 @@ export class MapCollision {
   }
 
   /**
+   * Apply P_CheckPosition floor/ceiling to a mobj.
+   * @param {import('./Mobj.js').Mobj} thing
+   */
+  setThingFloor(thing) {
+    thing.floorz = this.tmfloorz;
+    thing.ceilingz = this.tmceilingz;
+  }
+
+  /**
    * @param {import('./Mobj.js').Mobj} thing
    * @param {number} x
    * @param {number} y
@@ -396,8 +405,7 @@ export class MapCollision {
     thing.x = x;
     thing.y = y;
     thing.subsector = this.level.findSubsector(x, y);
-    thing.floorz = this.tmfloorz;
-    thing.ceilingz = this.tmceilingz;
+    this.setThingFloor(thing);
 
     if (!(thing.flags & (MF_TELEPORT | MF_NOCLIP))
       && thing.playerObject && this.specCtx) {
@@ -1298,6 +1306,10 @@ export class MapCollision {
   mobjZMovement(mo) {
     const player = mo.playerObject ?? null;
 
+    if (mo.momz == null) {
+      mo.momz = 0;
+    }
+
     if (player && mo.z < mo.floorz) {
       player.viewheight -= mo.floorz - mo.z;
       player.deltaviewheight = (player.viewheightBase - player.viewheight) >> 3;
@@ -1324,10 +1336,7 @@ export class MapCollision {
         }
         mo.momz = 0;
       }
-      // Corpses must not be hoisted onto a ledge (p_mobj.c — step edges).
-      if (!(mo.flags & MF_CORPSE) || mo.floorz - mo.z <= MAXSTEPHEIGHT) {
-        mo.z = mo.floorz;
-      }
+      mo.z = mo.floorz;
 
       if ((mo.flags & MF_MISSILE) && !(mo.flags & MF_NOCLIP)) {
         this.onMissileExplode?.(mo);
@@ -1365,8 +1374,7 @@ export class MapCollision {
     }
 
     thing.subsector = this.level.findSubsector(thing.x, thing.y);
-    thing.floorz = this.tmfloorz;
-    thing.ceilingz = this.tmceilingz;
+    this.setThingFloor(thing);
 
     if (onfloor) {
       if (thing.playerObject && thing.z < thing.floorz) {

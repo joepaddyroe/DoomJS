@@ -57,6 +57,8 @@ export class MissileManager {
     this.sound = sound;
     this.things = things;
     this.player = player;
+    /** @type {import('./MonsterThink.js').MonsterContext|null} */
+    this.monsterDeathCtx = null;
     /** @type {MissileMobj[]} */
     this.missiles = [];
     collision.missiles = this.missiles;
@@ -248,6 +250,7 @@ export class MissileManager {
         this.things,
         this.collision,
         this.player,
+        this.monsterDeathCtx,
       );
     } else if (this.player && def.hitType === 'bfg' && mo.target) {
       this.bfgSpray(mo);
@@ -293,6 +296,7 @@ export class MissileManager {
         damage,
         this.player,
         this.collision.dropCtx,
+        this.monsterDeathCtx,
       );
     }
   }
