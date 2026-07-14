@@ -45,7 +45,7 @@ import {
 import { ML_TWOSIDED } from './mapFormat.js';
 import { createTrigTables } from '../math/tables.js';
 import { pointToAngle } from '../math/viewMath.js';
-import { MF_NOGRAVITY, MF_PICKUP, MF_SHOOTABLE, MF_SOLID, MF_SPECIAL } from './mobjFlags.js';
+import { MF_CORPSE, MF_NOGRAVITY, MF_PICKUP, MF_SHOOTABLE, MF_SOLID, MF_SPECIAL } from './mobjFlags.js';
 import { approxDistance } from './monster/Sight.js';
 import { gameRandom } from './GameRandom.js';
 import { damageMobj } from './monster/MobjCombat.js';
@@ -393,11 +393,11 @@ export class MapCollision {
       }
     }
 
-    thing.floorz = this.tmfloorz;
-    thing.ceilingz = this.tmceilingz;
     thing.x = x;
     thing.y = y;
     thing.subsector = this.level.findSubsector(x, y);
+    thing.floorz = this.tmfloorz;
+    thing.ceilingz = this.tmceilingz;
 
     if (!(thing.flags & (MF_TELEPORT | MF_NOCLIP))
       && thing.playerObject && this.specCtx) {
@@ -480,6 +480,16 @@ export class MapCollision {
 
     if (mo.z > mo.floorz) {
       return;
+    }
+
+    if (mo.flags & MF_CORPSE) {
+      if (mo.momx > FRACUNIT / 4 || mo.momx < -FRACUNIT / 4
+        || mo.momy > FRACUNIT / 4 || mo.momy < -FRACUNIT / 4) {
+        const sectorFloor = mo.subsector?.sector?.floorHeight;
+        if (sectorFloor !== undefined && mo.floorz !== sectorFloor) {
+          return;
+        }
+      }
     }
 
     if (mo.flags & (MF_MISSILE)) {
@@ -1314,7 +1324,10 @@ export class MapCollision {
         }
         mo.momz = 0;
       }
-      mo.z = mo.floorz;
+      // Corpses must not be hoisted onto a ledge (p_mobj.c — step edges).
+      if (!(mo.flags & MF_CORPSE) || mo.floorz - mo.z <= MAXSTEPHEIGHT) {
+        mo.z = mo.floorz;
+      }
 
       if ((mo.flags & MF_MISSILE) && !(mo.flags & MF_NOCLIP)) {
         this.onMissileExplode?.(mo);
