@@ -1,25 +1,37 @@
 import { FRACUNIT } from '../../core/renderConstants.js';
 import { BT_ATTACK } from '../../core/inputButtons.js';
+import { ANG90, ANG180, FINEANGLES, FINEMASK } from '../../core/angles.js';
+import { MELEERANGE } from '../../core/gameConstants.js';
 import { createTrigTables } from '../../math/tables.js';
-import { FINEANGLES, FINEMASK } from '../../core/angles.js';
+import { gameRandom } from '../GameRandom.js';
 import { noiseAlert } from '../monster/NoiseAlert.js';
+import { pointToAngle2 } from '../../math/viewMath.js';
 import {
+  AM_CELL,
   AM_CLIP,
+  AM_MISL,
   AM_NOAMMO,
   AM_SHELL,
+  BFGCELLS,
   LOWERSPEED,
   NUM_PSPRITES,
   PS_FLASH,
   PS_WEAPON,
   RAISESPEED,
+  S_CHAIN1,
   S_NULL,
   WEAPONBOTTOM,
   WEAPONTOP,
   WEAPON_INFO,
   WEAPON_STATES,
+  WP_BFG,
+  WP_CHAINGUN,
+  WP_CHAINSAW,
   WP_FIST,
+  WP_MISSILE,
   WP_NOCHANGE,
   WP_PISTOL,
+  WP_PLASMA,
   WP_SHOTGUN,
 } from './weaponConstants.js';
 
@@ -49,11 +61,13 @@ export class Psprites {
    * @param {import('../Hitscan.js').Hitscan} hitscan
    * @param {import('../audio/SoundSystem.js').SoundSystem|null} [sound]
    * @param {import('../Level.js').Level|null} [level]
+   * @param {import('../monster/MissileManager.js').MissileManager|null} [missiles]
    */
-  constructor(hitscan, sound = null, level = null) {
+  constructor(hitscan, sound = null, level = null, missiles = null) {
     this.hitscan = hitscan;
     this.sound = sound;
     this.level = level;
+    this.missiles = missiles;
     this.tables = createTrigTables();
   }
 
@@ -147,6 +161,27 @@ export class Psprites {
       case 'FireShotgun':
         this.fireShotgun(player, psp);
         break;
+      case 'FireCGun':
+        this.fireCGun(player, psp);
+        break;
+      case 'GunFlash':
+        this.gunFlash(player);
+        break;
+      case 'FireMissile':
+        this.fireMissile(player);
+        break;
+      case 'FirePlasma':
+        this.firePlasma(player, psp);
+        break;
+      case 'FireBFG':
+        this.fireBFG(player);
+        break;
+      case 'BFGsound':
+        this.sound?.start('bfg');
+        break;
+      case 'Saw':
+        this.saw(player);
+        break;
       case 'FirePunch':
         this.firePunch(player, psp);
         break;
@@ -187,14 +222,33 @@ export class Psprites {
   /** @param {import('../Player.js').Player} player */
   checkAmmo(player) {
     const info = WEAPON_INFO[player.readyweapon];
-    if (info.ammo === AM_NOAMMO || player.ammo[info.ammo] >= 1) {
+    if (!info) {
+      return false;
+    }
+
+    let count = 1;
+    if (player.readyweapon === WP_BFG) {
+      count = BFGCELLS;
+    }
+
+    if (info.ammo === AM_NOAMMO || player.ammo[info.ammo] >= count) {
       return true;
     }
 
-    if (player.weaponowned[WP_SHOTGUN] && player.ammo[AM_SHELL] > 0) {
+    if (player.weaponowned[WP_PLASMA] && player.ammo[AM_CELL] > 0) {
+      player.pendingweapon = WP_PLASMA;
+    } else if (player.weaponowned[WP_CHAINGUN] && player.ammo[AM_CLIP] > 0) {
+      player.pendingweapon = WP_CHAINGUN;
+    } else if (player.weaponowned[WP_SHOTGUN] && player.ammo[AM_SHELL] > 0) {
       player.pendingweapon = WP_SHOTGUN;
     } else if (player.ammo[AM_CLIP] > 0) {
       player.pendingweapon = WP_PISTOL;
+    } else if (player.weaponowned[WP_CHAINSAW]) {
+      player.pendingweapon = WP_CHAINSAW;
+    } else if (player.weaponowned[WP_MISSILE] && player.ammo[AM_MISL] > 0) {
+      player.pendingweapon = WP_MISSILE;
+    } else if (player.weaponowned[WP_BFG] && player.ammo[AM_CELL] > BFGCELLS) {
+      player.pendingweapon = WP_BFG;
     } else {
       player.pendingweapon = WP_FIST;
     }
@@ -302,6 +356,86 @@ export class Psprites {
     this.hitscan.bulletSlopeFor(player.mo);
     this.hitscan.fireShotgun(player.mo);
     this.sound?.start('shotgn');
+  }
+
+  /** @param {import('../Player.js').Player} player @param {Psprite} psp */
+  fireCGun(player, psp) {
+    this.sound?.start('pistol');
+
+    const info = WEAPON_INFO[player.readyweapon];
+    if (!player.ammo[info.ammo]) {
+      return;
+    }
+
+    player.ammo[info.ammo]--;
+    const flashOffset = (psp.state ?? S_CHAIN1) - S_CHAIN1;
+    this.setPsprite(player, PS_FLASH, info.flashstate + flashOffset);
+    this.hitscan.bulletSlopeFor(player.mo);
+    this.hitscan.gunShot(player.mo, !player.refire);
+  }
+
+  /** @param {import('../Player.js').Player} player */
+  gunFlash(player) {
+    const info = WEAPON_INFO[player.readyweapon];
+    this.setPsprite(player, PS_FLASH, info.flashstate);
+  }
+
+  /** @param {import('../Player.js').Player} player */
+  fireMissile(player) {
+    const info = WEAPON_INFO[player.readyweapon];
+    player.ammo[info.ammo]--;
+    this.missiles?.spawnPlayerMissile(player.mo, 'rocket');
+  }
+
+  /** @param {import('../Player.js').Player} player @param {Psprite} psp */
+  firePlasma(player, psp) {
+    const info = WEAPON_INFO[player.readyweapon];
+    player.ammo[info.ammo]--;
+    this.setPsprite(
+      player,
+      PS_FLASH,
+      info.flashstate + (gameRandom() & 1),
+    );
+    this.missiles?.spawnPlayerMissile(player.mo, 'plasma');
+  }
+
+  /** @param {import('../Player.js').Player} player */
+  fireBFG(player) {
+    const info = WEAPON_INFO[player.readyweapon];
+    player.ammo[info.ammo] -= BFGCELLS;
+    this.missiles?.spawnPlayerMissile(player.mo, 'bfg');
+  }
+
+  /** @param {import('../Player.js').Player} player */
+  saw(player) {
+    const damage = 2 * ((gameRandom() % 10) + 1);
+    let angle = player.mo.angle >>> 0;
+    angle = (angle + ((gameRandom() - gameRandom()) << 18)) >>> 0;
+
+    const mo = player.mo;
+    const slope = this.hitscan.collision.aimLineAttack(mo, angle, MELEERANGE + FRACUNIT);
+    const hit = this.hitscan.lineAttack(mo, angle, MELEERANGE + FRACUNIT, slope, damage);
+
+    if (!hit) {
+      this.sound?.start('sawful');
+      return;
+    }
+
+    this.sound?.start('sawhit');
+
+    const targetAngle = pointToAngle2(mo.x, mo.y, hit.x, hit.y, this.tables.tantoangle);
+    let delta = (targetAngle - mo.angle) >>> 0;
+    if (delta > ANG180) {
+      if (targetAngle - mo.angle < -(ANG90 / 20)) {
+        mo.angle = (targetAngle + ANG90 / 21) >>> 0;
+      } else {
+        mo.angle = (mo.angle - ANG90 / 20) >>> 0;
+      }
+    } else if (targetAngle - mo.angle > ANG90 / 20) {
+      mo.angle = (targetAngle - ANG90 / 21) >>> 0;
+    } else {
+      mo.angle = (mo.angle + ANG90 / 20) >>> 0;
+    }
   }
 
   /** @param {import('../Player.js').Player} player @param {Psprite} psp */

@@ -14,8 +14,13 @@ import {
   AM_MISL,
   AM_SHELL,
   MAX_AMMO,
+  WP_BFG,
+  WP_CHAINGUN,
+  WP_CHAINSAW,
   WP_FIST,
+  WP_MISSILE,
   WP_PISTOL,
+  WP_PLASMA,
   WP_SHOTGUN,
 } from './weapons/weaponConstants.js';
 
@@ -25,17 +30,10 @@ const CLIP_AMMO = [10, 4, 20, 1];
 const MAX_HEALTH = 100;
 const MAX_BONUS_HEALTH = 200;
 
-/** Extended weapon slots beyond currently switchable weapons. */
-const WP_CHAINGUN = 3;
-const WP_LAUNCHER = 4;
-const WP_PLASMA = 5;
-const WP_BFG = 6;
-const WP_CHAINSAW = 7;
-
 const WEAPON_PICKUPS = {
   weapon_shotgun: { weapon: WP_SHOTGUN, ammo: AM_SHELL, clips: 2 },
   weapon_chaingun: { weapon: WP_CHAINGUN, ammo: AM_CLIP, clips: 2 },
-  weapon_launcher: { weapon: WP_LAUNCHER, ammo: AM_MISL, clips: 2 },
+  weapon_launcher: { weapon: WP_MISSILE, ammo: AM_MISL, clips: 2 },
   weapon_plasma: { weapon: WP_PLASMA, ammo: AM_CELL, clips: 2 },
   weapon_bfg: { weapon: WP_BFG, ammo: AM_CELL, clips: 2 },
   weapon_chainsaw: { weapon: WP_CHAINSAW, ammo: null, clips: 0 },
@@ -286,9 +284,7 @@ export class ItemPickup {
     if (!player.weaponowned[info.weapon]) {
       player.weaponowned[info.weapon] = true;
       player.bonuscount += 2;
-      if (info.weapon === WP_SHOTGUN) {
-        player.pendingweapon = WP_SHOTGUN;
-      }
+      player.pendingweapon = info.weapon;
       gaveWeapon = true;
     }
 

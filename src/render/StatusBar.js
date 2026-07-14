@@ -152,7 +152,7 @@ export class StatusBar {
 
     renderer.drawPatch(ST_ARMSBGX, ST_ARMSBGY, this.armsBg.header, this.armsBg.data);
     for (let i = 0; i < 6; i++) {
-      const owned = player.weaponowned[i + 2];
+      const owned = player.weaponowned[i + 1];
       const patch = this.arms[i][owned ? 1 : 0];
       renderer.drawPatch(
         ST_ARMSX + (i % 3) * ST_ARMSXSPACE,

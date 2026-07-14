@@ -4,9 +4,17 @@ import { FRACUNIT } from '../../core/renderConstants.js';
 export const WP_FIST = 0;
 export const WP_PISTOL = 1;
 export const WP_SHOTGUN = 2;
-export const NUM_WEAPONS = 3;
+export const WP_CHAINGUN = 3;
+export const WP_MISSILE = 4;
+export const WP_PLASMA = 5;
+export const WP_BFG = 6;
+export const WP_CHAINSAW = 7;
+export const NUM_WEAPONS = 8;
 
 export const WP_NOCHANGE = -1;
+
+/** Cells consumed per BFG shot (p_pspr.c). */
+export const BFGCELLS = 40;
 
 /** Ammo types (doomdef.h). */
 export const AM_CLIP = 0;
@@ -78,6 +86,47 @@ export const S_SGUN8 = 28;
 export const S_SGUN9 = 29;
 export const S_SGUNFLASH1 = 30;
 export const S_SGUNFLASH2 = 31;
+export const S_CHAIN = 32;
+export const S_CHAINDOWN = 33;
+export const S_CHAINUP = 34;
+export const S_CHAIN1 = 35;
+export const S_CHAIN2 = 36;
+export const S_CHAIN3 = 37;
+export const S_CHAINFLASH1 = 38;
+export const S_CHAINFLASH2 = 39;
+export const S_MISSILE = 40;
+export const S_MISSILEDOWN = 41;
+export const S_MISSILEUP = 42;
+export const S_MISSILE1 = 43;
+export const S_MISSILE2 = 44;
+export const S_MISSILE3 = 45;
+export const S_MISSILEFLASH1 = 46;
+export const S_MISSILEFLASH2 = 47;
+export const S_MISSILEFLASH3 = 48;
+export const S_MISSILEFLASH4 = 49;
+export const S_SAW = 50;
+export const S_SAWB = 51;
+export const S_SAWDOWN = 52;
+export const S_SAWUP = 53;
+export const S_SAW1 = 54;
+export const S_SAW2 = 55;
+export const S_SAW3 = 56;
+export const S_PLASMA = 57;
+export const S_PLASMADOWN = 58;
+export const S_PLASMAUP = 59;
+export const S_PLASMA1 = 60;
+export const S_PLASMA2 = 61;
+export const S_PLASMAFLASH1 = 62;
+export const S_PLASMAFLASH2 = 63;
+export const S_BFG = 64;
+export const S_BFGDOWN = 65;
+export const S_BFGUP = 66;
+export const S_BFG1 = 67;
+export const S_BFG2 = 68;
+export const S_BFG3 = 69;
+export const S_BFG4 = 70;
+export const S_BFGFLASH1 = 71;
+export const S_BFGFLASH2 = 72;
 
 /**
  * @typedef {Object} WeaponState
@@ -135,6 +184,57 @@ addState(1, 0, 7, 'ReFire', S_SGUN);
 addState(5, FF_FULLBRIGHT, 4, 'Light1', S_SGUNFLASH2);
 addState(5, FF_FULLBRIGHT | 1, 3, 'Light2', S_LIGHTDONE);
 
+// Chaingun (32–39)
+addState(7, 0, 1, 'WeaponReady', S_CHAIN);
+addState(7, 0, 1, 'Lower', S_CHAINDOWN);
+addState(7, 0, 1, 'Raise', S_CHAINUP);
+addState(7, 0, 4, 'FireCGun', S_CHAIN2);
+addState(7, 1, 4, 'FireCGun', S_CHAIN3);
+addState(7, 1, 0, 'ReFire', S_CHAIN);
+addState(8, FF_FULLBRIGHT, 5, 'Light1', S_LIGHTDONE);
+addState(8, FF_FULLBRIGHT | 1, 5, 'Light2', S_LIGHTDONE);
+
+// Rocket launcher (40–49)
+addState(9, 0, 1, 'WeaponReady', S_MISSILE);
+addState(9, 0, 1, 'Lower', S_MISSILEDOWN);
+addState(9, 0, 1, 'Raise', S_MISSILEUP);
+addState(9, 1, 8, 'GunFlash', S_MISSILE2);
+addState(9, 1, 12, 'FireMissile', S_MISSILE3);
+addState(9, 1, 0, 'ReFire', S_MISSILE);
+addState(10, FF_FULLBRIGHT, 3, 'Light1', S_MISSILEFLASH2);
+addState(10, FF_FULLBRIGHT | 1, 4, null, S_MISSILEFLASH3);
+addState(10, FF_FULLBRIGHT | 2, 4, 'Light2', S_MISSILEFLASH4);
+addState(10, FF_FULLBRIGHT | 3, 4, 'Light2', S_LIGHTDONE);
+
+// Chainsaw (50–56)
+addState(11, 2, 4, 'WeaponReady', S_SAWB);
+addState(11, 3, 4, 'WeaponReady', S_SAW);
+addState(11, 2, 1, 'Lower', S_SAWDOWN);
+addState(11, 2, 1, 'Raise', S_SAWUP);
+addState(11, 0, 4, 'Saw', S_SAW2);
+addState(11, 1, 4, 'Saw', S_SAW3);
+addState(11, 1, 0, 'ReFire', S_SAW);
+
+// Plasma rifle (57–63)
+addState(12, 0, 1, 'WeaponReady', S_PLASMA);
+addState(12, 0, 1, 'Lower', S_PLASMADOWN);
+addState(12, 0, 1, 'Raise', S_PLASMAUP);
+addState(12, 0, 3, 'FirePlasma', S_PLASMA2);
+addState(12, 1, 20, 'ReFire', S_PLASMA);
+addState(13, FF_FULLBRIGHT, 4, 'Light1', S_LIGHTDONE);
+addState(13, FF_FULLBRIGHT | 1, 4, 'Light1', S_LIGHTDONE);
+
+// BFG (64–72)
+addState(14, 0, 1, 'WeaponReady', S_BFG);
+addState(14, 0, 1, 'Lower', S_BFGDOWN);
+addState(14, 0, 1, 'Raise', S_BFGUP);
+addState(14, 0, 20, 'BFGsound', S_BFG2);
+addState(14, 1, 10, 'GunFlash', S_BFG3);
+addState(14, 1, 10, 'FireBFG', S_BFG4);
+addState(14, 1, 20, 'ReFire', S_BFG);
+addState(15, FF_FULLBRIGHT, 11, 'Light1', S_BFGFLASH2);
+addState(15, FF_FULLBRIGHT | 1, 6, 'Light2', S_LIGHTDONE);
+
 /** @type {{ ammo: number, upstate: number, downstate: number, readystate: number, atkstate: number, flashstate: number }[]} */
 export const WEAPON_INFO = [
   {
@@ -160,6 +260,46 @@ export const WEAPON_INFO = [
     readystate: S_SGUN,
     atkstate: S_SGUN1,
     flashstate: S_SGUNFLASH1,
+  },
+  {
+    ammo: AM_CLIP,
+    upstate: S_CHAINUP,
+    downstate: S_CHAINDOWN,
+    readystate: S_CHAIN,
+    atkstate: S_CHAIN1,
+    flashstate: S_CHAINFLASH1,
+  },
+  {
+    ammo: AM_MISL,
+    upstate: S_MISSILEUP,
+    downstate: S_MISSILEDOWN,
+    readystate: S_MISSILE,
+    atkstate: S_MISSILE1,
+    flashstate: S_MISSILEFLASH1,
+  },
+  {
+    ammo: AM_CELL,
+    upstate: S_PLASMAUP,
+    downstate: S_PLASMADOWN,
+    readystate: S_PLASMA,
+    atkstate: S_PLASMA1,
+    flashstate: S_PLASMAFLASH1,
+  },
+  {
+    ammo: AM_CELL,
+    upstate: S_BFGUP,
+    downstate: S_BFGDOWN,
+    readystate: S_BFG,
+    atkstate: S_BFG1,
+    flashstate: S_BFGFLASH1,
+  },
+  {
+    ammo: AM_NOAMMO,
+    upstate: S_SAWUP,
+    downstate: S_SAWDOWN,
+    readystate: S_SAW,
+    atkstate: S_SAW1,
+    flashstate: S_NULL,
   },
 ];
 

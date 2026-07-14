@@ -40,6 +40,12 @@ export const SFX_LUMPS = {
   slop: 'DSSLOP',
   firsht: 'DSFIRSHT',
   firxpl: 'DSFIRXPL',
+  rlaunc: 'DSRLAUNC',
+  plasma: 'DSPLASMA',
+  bfg: 'DSBFG',
+  rxplod: 'DSRXPLOD',
+  sawful: 'DSSAWFUL',
+  sawhit: 'DSSAWHIT',
   pldeth: 'DSPLDETH',
 };
 

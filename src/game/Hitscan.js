@@ -81,12 +81,16 @@ export class Hitscan {
    * @param {number} distance
    * @param {number} slope
    * @param {number} damage
+   * @returns {{ x: number, y: number, thing: object }|null}
    */
   lineAttack(mo, angle, distance, slope, damage) {
     const idx = fineAngleIndex(angle);
     const x2 = mo.x + ((distance >> FRACBITS) * this.tables.finecosine[idx]) | 0;
     const y2 = mo.y + ((distance >> FRACBITS) * this.tables.finesine[idx]) | 0;
     const shootZ = mo.z + (mo.height >> 1) + 8 * FRACUNIT;
+
+    /** @type {{ x: number, y: number, thing: object }|null} */
+    let thingHit = null;
 
     const hit = this.collision.shootTraverse(
       mo.x,
@@ -104,6 +108,7 @@ export class Hitscan {
             damageMobj(thing, mo, mo, damage, this.player, this.collision.dropCtx);
           }
           this.puffs.spawn(x, y, z);
+          thingHit = { x, y, thing };
         },
       },
     );
@@ -112,5 +117,7 @@ export class Hitscan {
       && hit.x !== undefined && hit.y !== undefined && hit.z !== undefined) {
       this.puffs.spawn(hit.x, hit.y, hit.z);
     }
+
+    return thingHit;
   }
 }
