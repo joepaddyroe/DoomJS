@@ -1,3 +1,6 @@
 node_modules/
+
+# Commercial IWADs (user-supplied; do not commit or push)
 doom.wad
+**/doom.wad
 assets/doom.wad
