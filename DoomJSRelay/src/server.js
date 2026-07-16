@@ -23,12 +23,13 @@ const DEFAULT_PORT = Number(process.env.PORT) || 7777;
  */
 export function createRelayServer(opts = {}) {
   const port = opts.port ?? DEFAULT_PORT;
+  const host = opts.host ?? process.env.HOST ?? '0.0.0.0';
   /** @type {Map<string, Room>} */
   const rooms = new Map();
   /** @type {Map<import('ws').WebSocket, { clientId: string, roomId: string|null }>} */
   const sockets = new Map();
 
-  const wss = new WebSocketServer({ port });
+  const wss = new WebSocketServer({ port, host });
 
   wss.on('connection', (ws) => {
     const clientId = randomUUID();
@@ -191,6 +192,7 @@ export function createRelayServer(opts = {}) {
     wss,
     rooms,
     port,
+    host,
     close: () => new Promise((resolve) => wss.close(resolve)),
   };
 }
@@ -211,5 +213,5 @@ const isMain = process.argv[1]
 
 if (isMain) {
   const server = createRelayServer();
-  console.log(`[DoomJSRelay] listening on ws://127.0.0.1:${server.port}`);
+  console.log(`[DoomJSRelay] listening on ${server.host}:${server.port}`);
 }
