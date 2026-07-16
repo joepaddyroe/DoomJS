@@ -93,8 +93,34 @@ export class Game {
     );
     this.viewBorder = new ViewBorder(this.wad, this.textures);
 
+    /** @type {import('../net/NetGameSession.js').NetGameSession|null} */
+    this.net = null;
+
     // Start title music (will begin after unlock).
     this.music?.startMenuMusic();
+  }
+
+  /**
+   * Attach optional net lockstep session (?net=1).
+   * @param {import('../net/NetGameSession.js').NetGameSession} session
+   */
+  setNetSession(session) {
+    this.net = session;
+  }
+
+  /**
+   * Both peers call this when relay broadcasts `start`.
+   * @param {object} msg
+   */
+  beginNetMatch(msg) {
+    const setup = msg.setup ?? {};
+    this.mapName = setup.map || this.mapName || 'E1M1';
+    this.skill = setup.skill ?? this.skill ?? 3;
+    this.menu.close();
+    this.map = MapLoader.load(this.wad, this.mapName);
+    this.beginPlay();
+    this.phase = 'playing';
+    this.music?.startLevelMusic(this.mapName);
   }
 
   saveToSlot(slot) {
@@ -342,7 +368,9 @@ export class Game {
           const cmd = input.buildTicCmd();
           player.attacking = (cmd.buttons & BT_ATTACK) !== 0;
 
-          if (!player.dead) {
+          if (this.net?.active) {
+            this.tickNetPlaying(cmd);
+          } else if (!player.dead) {
             const damageBefore = player.damagecount;
             this.playSession.tick(cmd);
             if (player.damagecount > damageBefore) {
@@ -499,7 +527,11 @@ export class Game {
       const extralight = this.playSession.player.extralight;
 
       this.billboardRenderer.drawThings(
-        [...this.playSession.things, ...this.playSession.missiles.missiles],
+        [
+          ...this.playSession.things,
+          ...this.playSession.missiles.missiles,
+          ...this.playSession.remotePlayerMobjs(),
+        ],
         view,
         this.bspRenderer.ctx.viewSetup,
         this.trigTables,
@@ -554,6 +586,43 @@ export class Game {
     this.music?.startLevelMusic(this.mapName);
   }
 
+  /**
+   * @param {import('../game/TicCmd.js').TicCmd} localCmd
+   */
+  tickNetPlaying(localCmd) {
+    const net = this.net;
+    const session = this.playSession;
+    if (!net || !session) {
+      return;
+    }
+
+    net.offerLocalCmd(localCmd);
+    const verified = net.pollVerified();
+    if (!verified) {
+      // Stall sim until all peers' inputs for this tick are confirmed.
+      this.statusBar.tick(session.player);
+      return;
+    }
+
+    const player = session.player;
+    const damageBefore = player.damagecount;
+    session.tick(verified.cmds);
+
+    for (const p of session.players) {
+      if (!p || p.dead) {
+        continue;
+      }
+      if (p.health <= 0) {
+        startPlayerDeath(p, session.psprites, this.sound);
+      }
+    }
+
+    if (player.damagecount > damageBefore) {
+      this.sound?.start('plpain', { volume: SFX_VOLUME.plpain });
+    }
+    this.statusBar.tick(player);
+  }
+
   beginPlay() {
     if (!this.map) {
       this.map = MapLoader.load(this.wad, this.mapName);
@@ -565,19 +634,55 @@ export class Game {
     this.automapVisible = false;
 
     const level = Level.fromMap(this.map, this.textures, this.map.blockmap);
-    const playerStart = MapLoader.findPlayerStart(this.map);
-    if (!playerStart) {
-      throw new Error('No player start found on map');
+
+    /** @type {(import('../game/Player.js').Player|null)[]} */
+    let players;
+    let localIndex = 0;
+
+    if (this.net?.active) {
+      const starts = MapLoader.findPlayerStarts(this.map);
+      const fallback = starts.find(Boolean) ?? MapLoader.findPlayerStart(this.map);
+      if (!fallback) {
+        throw new Error('No player start found on map');
+      }
+      const mask = this.net.playerMask;
+      localIndex = this.net.localPlayer;
+      players = [];
+      for (let i = 0; i < 4; i++) {
+        if ((mask & (1 << i)) === 0) {
+          players.push(null);
+          continue;
+        }
+        const thing = starts[i] ?? {
+          ...fallback,
+          x: fallback.x + i * 32,
+          y: fallback.y,
+        };
+        players.push(Player.fromStart(thing, level));
+      }
+    } else {
+      const playerStart = MapLoader.findPlayerStart(this.map);
+      if (!playerStart) {
+        throw new Error('No player start found on map');
+      }
+      players = [Player.fromStart(playerStart, level)];
     }
 
-    const player = Player.fromStart(playerStart, level);
+    const player = players[localIndex];
+    if (!player) {
+      throw new Error('Local player seat missing');
+    }
+
     this.bspRenderer = new BspRenderer(level, this.textures, this.renderer, this.assets.colormaps);
     this.applyViewLayout();
     this.automap.seedPlayer(player);
     this.playSession = new PlaySession(level, player, this.sound, this.skill, {
       textures: this.textures,
       onExitLevel: (secret) => this.completeLevel(secret),
+      players,
+      localPlayerIndex: localIndex,
     });
+
     this.statusBar.resetForPlayer(player);
     this.menu.setUsergame(true);
     this.menu.applySfxVolume();

@@ -13,6 +13,7 @@ import { buildSwitchPairs } from '../game/spec/SwitchList.js';
 import { MF_COUNTITEM, MF_COUNTKILL } from '../game/mobjFlags.js';
 import { tickPlayerPowers, thinkPlayerSpecialSector } from '../game/PlayerPowers.js';
 import { tickCorpseDebug } from '../game/debug/CorpseDebug.js';
+import { createTicCmd } from '../game/TicCmd.js';
 
 /**
  * Active play state: player simulation + view for rendering.
@@ -26,20 +27,31 @@ export class PlaySession {
    * @param {object} [options]
    * @param {import('../render/TextureManager.js').TextureManager} [options.textures]
    * @param {(secret?: boolean) => void} [options.onExitLevel]
+   * @param {import('../game/Player.js').Player[]} [options.players]
+   * @param {number} [options.localPlayerIndex]
    */
   constructor(level, player, sound = null, skill = 3, options = {}) {
     this.level = level;
-    this.player = player;
+    /** @type {(import('../game/Player.js').Player|null)[]} */
+    this.players = options.players?.length ? options.players : [player];
+    this.localPlayerIndex = options.localPlayerIndex ?? 0;
+    this.player = this.players[this.localPlayerIndex] ?? player;
+
     this.things = spawnMapThings(level, skill);
     this.pickups = new ItemPickup(sound);
-    this.collision = new MapCollision(level, this.things, this.pickups, player.mo);
-    this.collision.damagePlayer = player;
+    const playerMos = this.players.filter((p) => p).map((p) => p.mo);
+    this.collision = new MapCollision(level, this.things, this.pickups, playerMos);
+    this.collision.damagePlayer = this.player;
     this.collision.dropCtx = { level, things: this.things };
-    this.missiles = new MissileManager(level, this.collision, sound, this.things, player);
+    this.missiles = new MissileManager(level, this.collision, sound, this.things, this.player);
     this.puffs = new PuffManager();
-    this.hitscan = new Hitscan(this.collision, this.puffs, player);
+    this.hitscan = new Hitscan(this.collision, this.puffs, this.player);
     this.psprites = new Psprites(this.hitscan, sound, level, this.missiles);
-    this.psprites.setup(player);
+    for (const p of this.players) {
+      if (p) {
+        this.psprites.setup(p);
+      }
+    }
     this.thinkers = new ThinkerList();
     this.specCtx = {
       thinkers: this.thinkers,
@@ -49,7 +61,7 @@ export class PlaySession {
       sound,
       collision: this.collision,
       onExitLevel: options.onExitLevel,
-      playerMo: player.mo,
+      playerMo: this.player.mo,
     };
     this.collision.specCtx = this.specCtx;
 
@@ -65,37 +77,68 @@ export class PlaySession {
     this.foundSecretSectors = new Set();
   }
 
-  /** @param {import('../game/TicCmd.js').TicCmd} cmd */
-  tick(cmd) {
-    const { player, collision } = this;
+  /**
+   * @param {import('../game/TicCmd.js').TicCmd| (import('../game/TicCmd.js').TicCmd|null)[]} cmdOrCmds
+   */
+  tick(cmdOrCmds) {
+    const cmds = Array.isArray(cmdOrCmds) ? cmdOrCmds : [cmdOrCmds];
 
-    if (player.dead) {
-      return;
-    }
-
-    player.cmd = cmd;
-    player.leveltime++;
-
-    if (player.reactiontime > 0) {
-      player.reactiontime--;
-    } else {
-      PlayerMovement.move(player, cmd);
+    for (let i = 0; i < this.players.length; i++) {
+      const player = this.players[i];
+      if (!player || player.dead) {
+        continue;
+      }
+      const cmd = cmds[i] ?? createTicCmd();
+      player.cmd = cmd;
+      player.leveltime++;
+      if (player.reactiontime > 0) {
+        player.reactiontime--;
+      } else {
+        PlayerMovement.move(player, cmd);
+      }
     }
 
     // Floor/plat/door thinkers before movement (p_tick.c — P_RunThinkers before P_MobjThinker).
     this.thinkers.runAll();
 
-    collision.xyMovement(player.mo, cmd);
-    collision.zMovement(player);
-    PlayerMovement.calcHeight(player);
-    tickPlayerPowers(player);
-    thinkPlayerSpecialSector(player);
-    thinkUse(player, this.specCtx, collision);
-    thinkWeaponChange(player);
+    for (let i = 0; i < this.players.length; i++) {
+      const player = this.players[i];
+      if (!player || player.dead) {
+        continue;
+      }
+      const cmd = cmds[i] ?? createTicCmd();
+      this.collision.damagePlayer = player;
+      this.specCtx.playerMo = player.mo;
+      this.hitscan.player = player;
+      this.missiles.player = player;
 
+      this.collision.xyMovement(player.mo, cmd);
+      this.collision.zMovement(player);
+      PlayerMovement.calcHeight(player);
+      tickPlayerPowers(player);
+      thinkPlayerSpecialSector(player);
+      thinkUse(player, this.specCtx, this.collision);
+      thinkWeaponChange(player);
+
+      const monsterCtx = {
+        player,
+        collision: this.collision,
+        hitscan: this.hitscan,
+        missiles: this.missiles,
+        things: this.things,
+        sound: this.specCtx.sound,
+      };
+      this.hitscan.monsterDeathCtx = monsterCtx;
+      this.missiles.monsterDeathCtx = monsterCtx;
+
+      this.psprites.think(player);
+    }
+
+    // Monsters / missiles once; target local player (MVP).
+    const local = this.player;
     const monsterCtx = {
-      player,
-      collision,
+      player: local,
+      collision: this.collision,
       hitscan: this.hitscan,
       missiles: this.missiles,
       things: this.things,
@@ -103,10 +146,11 @@ export class PlaySession {
     };
     this.hitscan.monsterDeathCtx = monsterCtx;
     this.missiles.monsterDeathCtx = monsterCtx;
+    this.hitscan.player = local;
+    this.missiles.player = local;
 
-    this.psprites.think(player);
     tickMonsters(this.things, monsterCtx);
-    this.missiles.tick(player);
+    this.missiles.tick(local);
     this.puffs.tick();
     tickCorpseDebug(this.things);
 
@@ -122,7 +166,7 @@ export class PlaySession {
       }
     }
 
-    const sectorIndex = player.mo.subsector?.sector?.index;
+    const sectorIndex = local.mo.subsector?.sector?.index;
     if (typeof sectorIndex === 'number') {
       const sec = this.level.sectors[sectorIndex];
       if (sec?.special === 9 && !this.foundSecretSectors.has(sectorIndex)) {
@@ -132,6 +176,22 @@ export class PlaySession {
     }
   }
 
+  /** Remote player mobjs for billboards (exclude local). */
+  remotePlayerMobjs() {
+    /** @type {import('../game/Mobj.js').Mobj[]} */
+    const list = [];
+    for (let i = 0; i < this.players.length; i++) {
+      if (i === this.localPlayerIndex) {
+        continue;
+      }
+      const p = this.players[i];
+      if (p?.mo && !p.dead) {
+        list.push(p.mo);
+      }
+    }
+    return list;
+  }
+
   /** @returns {{ x: number, y: number, z: number, angle: number, extralight: number }} */
   view() {
     return this.player.view();
@@ -139,8 +199,6 @@ export class PlaySession {
 
   /**
    * Minimal end-of-level stats snapshot for intermission.
-   * Doom has richer bookkeeping (kills/items/secrets totals), but DoomJS
-   * doesn't track those yet — we approximate what we can from live mobjs.
    */
   endStats() {
     return {

@@ -1,0 +1,19 @@
+{
+  "name": "@doomjs/relay",
+  "version": "0.1.0",
+  "description": "Thin WebSocket input relay + lobby for DoomJS Quantum-style sessions.",
+  "type": "module",
+  "main": "./src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "demo": "node demo/twoPlayerDemo.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "license": "ISC"
+}

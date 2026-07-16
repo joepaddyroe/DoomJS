@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DoomJS Net Demo</title>
+  <style>
+    :root {
+      --bg: #12141a;
+      --panel: #1c2030;
+      --text: #e8e6e0;
+      --muted: #9aa0b0;
+      --accent: #c45c26;
+      --ok: #3d9a6a;
+      --bad: #c44;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: radial-gradient(1200px 600px at 20% 0%, #243049, var(--bg));
+      color: var(--text);
+      padding: 1.5rem;
+    }
+    h1 { font-size: 1.35rem; margin: 0 0 0.35rem; letter-spacing: 0.04em; }
+    .lead { color: var(--muted); margin: 0 0 1.25rem; max-width: 40rem; }
+    .row { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: end; margin-bottom: 1rem; }
+    label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.8rem; color: var(--muted); }
+    input {
+      background: var(--panel);
+      border: 1px solid #333a4d;
+      color: var(--text);
+      padding: 0.45rem 0.6rem;
+      border-radius: 4px;
+      min-width: 10rem;
+    }
+    button {
+      background: var(--accent);
+      color: #fff;
+      border: 0;
+      padding: 0.55rem 0.9rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    button.secondary { background: #3a4258; }
+    .panel {
+      background: color-mix(in srgb, var(--panel) 92%, black);
+      border: 1px solid #2a3144;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+    .status { font-family: ui-monospace, Consolas, monospace; font-size: 0.85rem; white-space: pre-wrap; }
+    .ok { color: var(--ok); }
+    .bad { color: var(--bad); }
+    .hint { color: var(--muted); font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <h1>DoomJS net demo</h1>
+  <p class="lead">
+    Two-browser Quantum-style input demo (not full Doom). Start <code>DoomJSRelay</code>,
+    open this page in two tabs: one creates a room, the other joins. Both run the same
+    deterministic ECS sim; checksums should match.
+  </p>
+
+  <div class="panel">
+    <div class="row">
+      <label>Relay URL
+        <input id="url" value="ws://127.0.0.1:7777" />
+      </label>
+      <label>Room id
+        <input id="room" value="demo" />
+      </label>
+      <button id="connect" type="button">Connect</button>
+      <button id="create" class="secondary" type="button" disabled>Create + host</button>
+      <button id="join" class="secondary" type="button" disabled>Join</button>
+      <button id="ready" class="secondary" type="button" disabled>Ready</button>
+      <button id="start" class="secondary" type="button" disabled>Start (host)</button>
+      <button id="tick" type="button" disabled>Send 8 ticks</button>
+    </div>
+    <p class="hint">
+      Serve from the <strong>DoomJS</strong> folder (the one with <code>index.html</code>), not DoomJSRelay:
+      <code>python -m http.server 8080</code> then open
+      <code>http://127.0.0.1:8080/demo/net-demo.html</code>.
+      Relay separately: <code>cd DoomJSRelay &amp;&amp; npm start</code>.
+    </p>
+  </div>
+
+  <div class="panel">
+    <div id="status" class="status">Idle.</div>
+  </div>
+
+  <script type="module" src="./net-demo.js"></script>
+</body>
+</html>

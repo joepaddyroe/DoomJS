@@ -59,9 +59,36 @@ Audio              ████████░░  ~80%   grows with content
 UI / menus         ████████░░  ~85%   wipes + intermission stats; no finale
 Saves              ████░░░░░░  ~40%   JSON subset of vanilla save state
 Progression        █████░░░░░  ~50%   E1 ok; E2–4 / Doom II weak
-Multi / demos      ░░░░░░░░░░   0%
+Multi / demos      ██░░░░░░░░  ~15%   DoomECS + DoomJSRelay scaffold; not in SP loop
 Cheats             ░░░░░░░░░░   0%
 ```
+
+## Deterministic multiplayer (opt-in)
+
+Single-player is unchanged. Experimental packages on this branch:
+
+| Folder | Purpose |
+|--------|---------|
+| [DoomECS/](./DoomECS/) | Deterministic ECS, Quantum-style predict/rollback inputs, action replay |
+| [DoomJSRelay/](./DoomJSRelay/) | Thin Node WebSocket relay (lobby + confirmed ticcmds) |
+| [src/net/RelayBridge.js](./src/net/RelayBridge.js) | Optional browser bridge (not loaded by default) |
+
+```bash
+cd DoomECS && npm test
+cd ../DoomJSRelay && npm install && npm test && npm run demo
+```
+
+### Toy ECS demo (checksum sandbox)
+1. `cd DoomJSRelay && npm start`
+2. `cd DoomJS && python -m http.server 8080`  ← must be DoomJS root
+3. Two tabs: http://127.0.0.1:8080/demo/net-demo.html
+
+### Real Doom lockstep (experimental)
+1. `cd DoomJSRelay && npm start`
+2. `cd DoomJS && python -m http.server 8080`
+3. Two tabs: http://127.0.0.1:8080/index.html?net=1
+4. Lobby: Connect → Create host / Join → Ready → Start (host)
+5. Both load the map; move with WASD — you should see the other player’s `PLAY` sprite
 
 ## Reference
 

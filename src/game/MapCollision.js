@@ -63,13 +63,19 @@ export class MapCollision {
    * @param {import('./Level.js').Level} level
    * @param {import('./MapThingSpawner.js').MapThingMobj[]} [mapThings]
    * @param {import('./ItemPickup.js').ItemPickup|null} [pickups]
-   * @param {import('./Mobj.js').Mobj|null} [playerMo]
+   * @param {import('./Mobj.js').Mobj|import('./Mobj.js').Mobj[]|null} [playerMoOrMos]
    */
-  constructor(level, mapThings = [], pickups = null, playerMo = null) {
+  constructor(level, mapThings = [], pickups = null, playerMoOrMos = null) {
     this.level = level;
     this.mapThings = mapThings;
     this.pickups = pickups;
-    this.playerMo = playerMo;
+    if (Array.isArray(playerMoOrMos)) {
+      this.playerMos = playerMoOrMos.filter(Boolean);
+      this.playerMo = this.playerMos[0] ?? null;
+    } else {
+      this.playerMo = playerMoOrMos;
+      this.playerMos = playerMoOrMos ? [playerMoOrMos] : [];
+    }
     this.tables = createTrigTables();
     this.tantoangle = this.tables.tantoangle;
 
@@ -177,9 +183,11 @@ export class MapCollision {
       }
     }
 
-    if (this.playerMo && this.tmthing !== this.playerMo) {
-      if (!this.checkThing(this.playerMo)) {
-        return false;
+    for (const pmo of this.playerMos) {
+      if (this.tmthing !== pmo) {
+        if (!this.checkThing(pmo)) {
+          return false;
+        }
       }
     }
 
@@ -977,8 +985,10 @@ export class MapCollision {
   addShootableIntercepts(shootThing) {
     /** @type {object[]} */
     const candidates = [...this.mapThings];
-    if (this.playerMo && this.playerMo !== shootThing) {
-      candidates.push(this.playerMo);
+    for (const pmo of this.playerMos) {
+      if (pmo !== shootThing) {
+        candidates.push(pmo);
+      }
     }
 
     for (const thing of candidates) {
@@ -1399,10 +1409,7 @@ export class MapCollision {
     let nofit = false;
 
     /** @type {import('./Mobj.js').Mobj[]} */
-    const mobjs = [...this.mapThings];
-    if (this.playerMo) {
-      mobjs.push(this.playerMo);
-    }
+    const mobjs = [...this.mapThings, ...this.playerMos];
     for (const missile of this.missiles) {
       if (!missile.removed) {
         mobjs.push(missile);

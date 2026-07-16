@@ -54,7 +54,7 @@ Use **§13** for file-level detail. Summary of what is **not** done yet:
 | **P4** | Intermission par times + animated map walk | Not started |
 | **P5** | Doom II `MAP##` progression | Not started |
 | **P5** | Nightmare mode (fast + respawn) | Not started |
-| **—** | Multiplayer, demos, DeHackEd | Explicit non-goals |
+| **—** | Multiplayer full hookup / DeHackEd | ECS+relay scaffold done; SP path untouched |
 
 ---
 
@@ -257,10 +257,13 @@ Legend: `[x]` done · `[~]` partial · `[ ]` not started
 - [~] E2–E4 titles sparse; **MAP02+ progression not implemented**
 - [ ] Episode end / boss finale flow
 
-### Phase 8 — Explicit non-goals (unless requested)
-- [ ] Multiplayer (`d_net.c`)
-- [ ] Demo record/playback (`g_game.c`)
-- [ ] Cheats (`m_cheat.c` — idkfa, idclev, idbehold, …)
+### Phase 8 — Multiplayer foundation (opt-in; does not alter SP play path)
+- [~] **DoomECS** — deterministic ECS + Quantum-style `SimulationSession` (predict/rollback) + replay recorder (`DoomECS/`)
+- [~] **DoomJSRelay** — thin WebSocket lobby + per-tick input confirm relay (`DoomJSRelay/`)
+- [~] Optional bridge only: `src/net/RelayBridge.js` (not imported by `main.js`)
+- [ ] Hook session into `PlaySession` / multi-player `players[]` (future)
+- [ ] Demo record/playback via ECS replay tape (`g_game.c` parity later)
+- [ ] Cheats (`m_cheat.c`)
 - [ ] DeHackEd / BOOM extensions
 
 ---
@@ -282,9 +285,19 @@ Audio              ████████░░  ~80%   grows with content
 UI / menus         ████████░░  ~85%   wipes + intermission stats; no finale
 Saves              ████░░░░░░  ~40%   JSON subset of vanilla save state
 Progression        █████░░░░░  ~50%   E1 ok; E2–4 / Doom II weak
-Multi / demos      ░░░░░░░░░░   0%
+Multi / demos      ██░░░░░░░░  ~15%   DoomECS + DoomJSRelay scaffold; not in SP loop
 Cheats             ░░░░░░░░░░   0%
 ```
+
+### 12.1b Deterministic net packages (2026-07-16)
+
+| Package | Role |
+|---------|------|
+| `DoomECS/` | Deterministic ECS world/frame, ticcmd codec, predict/rollback session, action replay |
+| `DoomJSRelay/` | Node WebSocket rooms; confirms input sets; **no** game sim |
+| `src/net/RelayBridge.js` | Opt-in client helpers; **not** wired into `main.js` |
+
+Single-player path (`src/main.js` → `Game.js`) is unchanged.
 
 ### 12.2 Done well (vanilla parity acceptable)
 
@@ -396,7 +409,7 @@ Use this when choosing what to port next. Goal: **complete Doom 1 (shareware + r
 | P4 | **Cheats** | Dev/QOL | new module · `m_cheat.c` |
 | P4 | **Finale screens** | Episode end | new scene · `f_finale.c` |
 | P5 | **Doom II MAP## progression** | Commercial WAD | `MapNames.js`, `Gamemode.js` |
-| — | Multiplayer, demos, DeHackEd | Only if explicitly requested | — |
+| — | Multiplayer full game hookup | Scaffold in DoomECS/DoomJSRelay; SP untouched |
 
 ---
 
@@ -479,7 +492,7 @@ User supplies a legally obtained IWAD (e.g. `doom.wad`). File picker available i
 
 ## 10. Non-goals (unless requested)
 
-- Multiplayer / `d_net`
+- Multiplayer full `PlaySession` hookup (scaffold: `DoomECS` / `DoomJSRelay`)
 - Node.js server port
 - TypeScript migration
 - Bundling commercial IWAD assets into the repo
@@ -500,6 +513,9 @@ User supplies a legally obtained IWAD (e.g. `doom.wad`). File picker available i
 | 2026-07-14 | Audio: `MusParser.js` for MUS playback |
 | 2026-07-14 | **Corpse hover fix:** vanilla physics (reverted map hacks); `momz` init; immediate `killMobj`; `P_MobjThinker` tick order; `CorpseDebug.js` |
 | 2026-07-15 | **Automap fix:** `fixedMul` line projection (int32 overflow); level-fit scale; vanilla `player_arrow` + WHITE (`0xD1`); `AM_drawLineCharacter` pipeline |
+| 2026-07-16 | **Multiplayer foundation (non-destructive):** `DoomECS` (deterministic ECS + Quantum-style inputs/replay), `DoomJSRelay` (WS input relay), opt-in `src/net/RelayBridge.js` |
+| 2026-07-16 | **Net demo:** two-client relay e2e + `npm run demo`; browser page `demo/net-demo.html`; `NetPlayController` + `demoSimulate` |
+| 2026-07-16 | **Net lockstep MVP:** `?net=1` lobby → dual coop spawn → relay-gated `PlaySession.tick(cmds)`; remote `PLAY` sprites; SP path unchanged |
 
 ---
 

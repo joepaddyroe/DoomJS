@@ -1,0 +1,15 @@
+{
+  "name": "@doomjs/ecs",
+  "version": "0.1.0",
+  "description": "Deterministic ECS + Quantum-style input session for DoomJS (predict/rollback, replay).",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "keywords": ["doom", "ecs", "deterministic", "rollback", "replay"],
+  "license": "ISC"
+}

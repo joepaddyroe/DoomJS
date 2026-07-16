@@ -54,6 +54,10 @@ export function createPlayerMobj(thing, level) {
     health: 100,
     subsector,
     player: true,
+    // Drawn for remote players in net (local view excludes own mo).
+    sprite: 'PLAY',
+    frame: 0,
+    monsterType: 'player',
   };
 }
 

@@ -343,4 +343,21 @@ export class MapLoader {
   static findPlayerStart(map) {
     return map.things.find((thing) => thing.type >= 1 && thing.type <= 4) ?? null;
   }
+
+  /**
+   * Coop player starts indexed by player 0–3 (thing types 1–4).
+   * Missing slots fall back to player 1's start (caller may offset).
+   * @param {DoomMap} map
+   * @returns {(MapThing|null)[]}
+   */
+  static findPlayerStarts(map) {
+    /** @type {(MapThing|null)[]} */
+    const starts = [null, null, null, null];
+    for (const thing of map.things) {
+      if (thing.type >= 1 && thing.type <= 4) {
+        starts[thing.type - 1] = thing;
+      }
+    }
+    return starts;
+  }
 }

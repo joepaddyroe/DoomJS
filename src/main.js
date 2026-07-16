@@ -15,10 +15,14 @@ import { SoundSystem } from './audio/SoundSystem.js';
 import { MusicSystem } from './audio/MusicSystem.js';
 import { createSoundDriver, soundDriverFromQuery } from './platform/sound/createSoundDriver.js';
 import { promptForWadFile } from './ui/WadLoaderPrompt.js';
+import { isNetMode, defaultRelayUrl } from './net/netMode.js';
+import { NetGameSession } from './net/NetGameSession.js';
+import { NetLobby } from './ui/NetLobby.js';
 
 const WAD_PATHS = ['./doom.wad', './assets/doom.wad', '../doom.wad'];
-const BUILD_TAG = '2026-07-13-renderfix';
+const BUILD_TAG = '2026-07-16-netlockstep';
 const SOUND_DRIVER = soundDriverFromQuery();
+const NET_MODE = isNetMode();
 
 const canvas = document.getElementById('screen');
 const output = new CanvasVideoOutput(canvas);
@@ -95,6 +99,18 @@ async function start() {
       mapName: 'E1M1',
     });
 
+    if (NET_MODE) {
+      const net = new NetGameSession({ url: defaultRelayUrl() });
+      game.setNetSession(net);
+      const lobby = new NetLobby(net);
+      lobby.mount();
+      net.onMatchStart = (msg) => {
+        lobby.hide();
+        game.beginNetMatch(msg);
+      };
+      console.log(`DoomJS net mode — lobby open. Relay ${defaultRelayUrl()}`);
+    }
+
     input = new KeyboardInput();
     input.attachCanvas(canvas);
 
@@ -135,6 +151,7 @@ async function start() {
     console.log(
       `DoomJS ${BUILD_TAG} — WASD move, mouse look, LMB fire, RMB use, Tab toggles automap. `
       + `Sound: ${soundSystem?.driverId ?? 'none'} (?sound=webaudio|howler|null). `
+      + (NET_MODE ? 'Net lockstep ON (?net=1). ' : '')
       + `${output.gameWidth}×${output.gameHeight} @ ${output.pixelScale}×.`,
     );
 
