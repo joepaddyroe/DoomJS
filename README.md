@@ -84,11 +84,13 @@ cd ../DoomJSRelay && npm install && npm test && npm run demo
 3. Two tabs: http://127.0.0.1:8080/demo/net-demo.html
 
 ### Real Doom lockstep (experimental)
-1. `cd DoomJSRelay && npm start`
-2. `cd DoomJS && python -m http.server 8080`
-3. Two tabs: http://127.0.0.1:8080/index.html?net=1
-4. Lobby: Connect → Create host / Join → Ready → Start (host)
-5. Both load the map; move with WASD — you should see the other player’s `PLAY` sprite
+1. Serve DoomJS: `python -m http.server 8080`
+2. Open http://127.0.0.1:8080/index.html — play single-player normally via the Doom menu
+3. Click the faint circle at the **top-right** to open the multiplayer lobby
+4. Host: Connect → Create host → Ready → Start  
+   Guest (second tab/browser): same → Join → Ready
+5. Default relay is Miget; local override: `?relay=ws://127.0.0.1:7777`
+6. Optional: `?net=1` opens the lobby at startup
 
 ## Reference
 

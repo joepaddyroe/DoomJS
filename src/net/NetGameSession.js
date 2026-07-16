@@ -1,5 +1,6 @@
 import { RelayClient, ticCmdToBytes, bytesToTicCmd } from './RelayBridge.js';
 import { createTicCmd } from '../game/TicCmd.js';
+import { MIGET_RELAY_URL } from './netMode.js';
 
 /**
  * Strict lockstep over DoomJSRelay (wait-for-confirm; no Doom world rollback yet).
@@ -7,7 +8,7 @@ import { createTicCmd } from '../game/TicCmd.js';
 export class NetGameSession {
   /** @param {{ url?: string }} [opts] */
   constructor(opts = {}) {
-    this.url = opts.url ?? 'ws://127.0.0.1:7777';
+    this.url = opts.url ?? MIGET_RELAY_URL;
     this.client = new RelayClient(this.url);
     this.active = false;
     this.connected = false;
