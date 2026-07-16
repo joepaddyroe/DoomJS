@@ -105,27 +105,30 @@ export function damageMobj(target, inflictor, source, damage, player, dropCtx = 
   }
 
   if (target.playerObject) {
+    // Always damage the player owning the hit mobj (not the caller’s “local player”
+    // context — that breaks net when you shoot another player).
+    const victim = target.playerObject;
     let actual = damage;
-    if (player.armortype) {
-      let saved = player.armortype === 1 ? (damage / 3) | 0 : (damage / 2) | 0;
-      if (player.armorpoints <= saved) {
-        saved = player.armorpoints;
-        player.armortype = 0;
+    if (victim.armortype) {
+      let saved = victim.armortype === 1 ? (damage / 3) | 0 : (damage / 2) | 0;
+      if (victim.armorpoints <= saved) {
+        saved = victim.armorpoints;
+        victim.armortype = 0;
       }
-      player.armorpoints -= saved;
+      victim.armorpoints -= saved;
       actual -= saved;
     }
-    player.health -= actual;
-    if (player.health < 0) {
-      player.health = 0;
+    victim.health -= actual;
+    if (victim.health < 0) {
+      victim.health = 0;
     }
-    player.mo.health = player.health;
-    player.damagecount += actual;
-    if (player.damagecount > 100) {
-      player.damagecount = 100;
+    victim.mo.health = victim.health;
+    victim.damagecount += actual;
+    if (victim.damagecount > 100) {
+      victim.damagecount = 100;
     }
-    if (source && source !== player.mo) {
-      player.attacker = source;
+    if (source && source !== victim.mo) {
+      victim.attacker = source;
     }
     return;
   }

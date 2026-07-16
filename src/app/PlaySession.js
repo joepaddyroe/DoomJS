@@ -134,10 +134,11 @@ export class PlaySession {
       this.psprites.think(player);
     }
 
-    // Monsters / missiles once; target local player (MVP).
+    // Monsters once; look at all seats in order (deterministic for net).
     const local = this.player;
     const monsterCtx = {
       player: local,
+      players: this.players,
       collision: this.collision,
       hitscan: this.hitscan,
       missiles: this.missiles,

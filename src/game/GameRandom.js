@@ -25,3 +25,16 @@ export function gameRandom() {
   rngIndex = (rngIndex + 1) % rngTable.length;
   return value;
 }
+
+/** @returns {number} */
+export function getGameRandomIndex() {
+  return rngIndex;
+}
+
+/**
+ * Reset play RNG (call on net match start so both peers share a stream).
+ * @param {number} [index=0]
+ */
+export function resetGameRandom(index = 0) {
+  rngIndex = ((index % rngTable.length) + rngTable.length) % rngTable.length;
+}

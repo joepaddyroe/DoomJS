@@ -21,6 +21,7 @@ import { spawnMapThing } from '../game/MapThingSpawner.js';
 import { FRACUNIT } from '../core/renderConstants.js';
 import { statusPaletteIndex } from '../render/StatusPalette.js';
 import { SFX_VOLUME } from '../audio/SfxRegistry.js';
+import { resetGameRandom } from '../game/GameRandom.js';
 
 /** @typedef {'title' | 'levelIntro' | 'intermission' | 'playing' | 'wipe'} GamePhase */
 
@@ -117,6 +118,8 @@ export class Game {
     this.mapName = setup.map || this.mapName || 'E1M1';
     this.skill = setup.skill ?? this.skill ?? 3;
     this.menu.close();
+    // Same P_Random stream on every peer before any sim tic.
+    resetGameRandom(setup.seed ?? msg.seed ?? 0);
     this.map = MapLoader.load(this.wad, this.mapName);
     this.beginPlay();
     this.phase = 'playing';

@@ -10,7 +10,7 @@ import {
   enemyMove,
   newChaseDir,
 } from './EnemyMove.js';
-import { lookForPlayer, checkSight } from './Sight.js';
+import { lookForPlayer, lookForPlayers, checkSight } from './Sight.js';
 import { pointToAngle2 } from '../../math/viewMath.js';
 import { createTrigTables } from '../../math/tables.js';
 import {
@@ -26,12 +26,21 @@ const tables = createTrigTables();
 /**
  * @typedef {Object} MonsterContext
  * @property {import('../Player.js').Player} player
+ * @property {(import('../Player.js').Player|null)[]} [players]
  * @property {import('../MapCollision.js').MapCollision} collision
  * @property {import('../Hitscan.js').Hitscan} hitscan
  * @property {import('./MissileManager.js').MissileManager} missiles
  * @property {import('../MapThingSpawner.js').MapThingMobj[]} things
  * @property {import('../../audio/SoundSystem.js').SoundSystem|null} [sound]
  */
+
+/** @param {MonsterContext} ctx @param {boolean} allaround */
+function tryLookForPlayers(actor, ctx, allaround) {
+  if (ctx.players?.length) {
+    return lookForPlayers(actor, ctx.players, ctx.collision, allaround);
+  }
+  return lookForPlayer(actor, ctx.player, ctx.collision, allaround);
+}
 
 /**
  * @param {import('../MapThingSpawner.js').MapThingMobj} actor
@@ -68,7 +77,7 @@ function aLook(actor, ctx) {
     }
   }
 
-  if (!lookForPlayer(actor, ctx.player, ctx.collision, false)) {
+  if (!tryLookForPlayers(actor, ctx, false)) {
     return;
   }
 
@@ -106,7 +115,7 @@ function aChase(actor, ctx) {
   }
 
   if (!actor.target || !(actor.target.flags & MF_SHOOTABLE)) {
-    if (lookForPlayer(actor, ctx.player, ctx.collision, true)) {
+    if (tryLookForPlayers(actor, ctx, true)) {
       return;
     }
     enterState(actor, actor.monsterDef.spawnState, ctx);

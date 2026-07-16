@@ -37,7 +37,7 @@ export function checkSight(actor, target, collision) {
  * @param {boolean} allaround
  */
 export function lookForPlayer(actor, player, collision, allaround) {
-  if (player.health <= 0) {
+  if (!player || player.health <= 0) {
     return false;
   }
 
@@ -63,4 +63,25 @@ export function lookForPlayer(actor, player, collision, allaround) {
 
   actor.target = mo;
   return true;
+}
+
+/**
+ * Deterministic multi-player look (p_enemy.c — P_LookForPlayers).
+ * Always scans seats in ascending order so every peer picks the same target.
+ *
+ * @param {import('../MapThingSpawner.js').MapThingMobj} actor
+ * @param {(import('../Player.js').Player|null|undefined)[]} players
+ * @param {import('../MapCollision.js').MapCollision} collision
+ * @param {boolean} allaround
+ */
+export function lookForPlayers(actor, players, collision, allaround) {
+  if (!players?.length) {
+    return false;
+  }
+  for (let i = 0; i < players.length; i++) {
+    if (lookForPlayer(actor, players[i], collision, allaround)) {
+      return true;
+    }
+  }
+  return false;
 }

@@ -1,9 +1,13 @@
 import { ANG180, ANG45 } from '../core/angles.js';
 import { TICRATE } from '../core/gameConstants.js';
-import { gameRandom } from '../game/GameRandom.js';
 import { pointToAngle2 } from '../math/viewMath.js';
 import { createTrigTables } from '../math/tables.js';
 import { PatchRenderer } from './PatchRenderer.js';
+
+/** Cosmetic UI RNG — must NOT use gameRandom (P_Random) or net/demos desync. */
+function uiRandom() {
+  return (Math.random() * 256) | 0;
+}
 
 /** st_stuff.c */
 const ST_NUMPAINFACES = 5;
@@ -77,7 +81,7 @@ export class StatusBarFace {
 
   /** @param {import('../game/Player.js').Player} player */
   tick(player) {
-    const randomNumber = gameRandom();
+    const randomNumber = uiRandom();
     let priority = this.priority;
 
     if (priority < 10) {
