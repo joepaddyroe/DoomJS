@@ -100,19 +100,12 @@ async function start() {
       mapName: 'E1M1',
     });
 
-    // Net is always available via a discreet top-right toggle; SP is default.
+    // Net is always available via a top-right toggle; SP is default.
     const net = new NetGameSession({ url: defaultRelayUrl() });
     game.setNetSession(net);
-    const lobby = new NetLobby(net, { startOpen: NET_LOBBY_START_OPEN });
-    lobby.mount();
-    net.onMatchStart = (msg) => {
-      lobby.hide();
-      game.beginNetMatch(msg);
-    };
-    console.log(
-      `DoomJS multiplayer toggle (top-right). Relay ${defaultRelayUrl()}`
-      + (NET_LOBBY_START_OPEN ? ' — lobby opened (?net=1).' : ''),
-    );
+
+    /** @type {boolean} */
+    let netUiOpen = false;
 
     input = new KeyboardInput();
     input.attachCanvas(canvas);
@@ -121,7 +114,8 @@ async function start() {
       if (!game) {
         return false;
       }
-      // Release only for the in-game pause menu; keep capture through intro/wipe.
+      // Keep capture eligibility while net UI is open so we can re-lock on close.
+      // Only the Doom pause menu forces a full release.
       if (game.phase === 'playing' && game.menu.active) {
         return false;
       }
@@ -131,13 +125,44 @@ async function start() {
         || game.phase === 'wipe'
         || game.phase === 'playing';
     };
-    const canMouseLook = () => game?.phase === 'playing' && !game.menu.active;
+    const canMouseLook = () => (
+      game?.phase === 'playing'
+      && !game.menu.active
+      && !netUiOpen
+    );
 
     input.setCombatEnabled(canMouseLook);
     const getMouseSensitivity = () => sensitivityFromMenuSetting(game?.menu.mouseSensitivity ?? 5);
     mouseLook = new MouseLook(canvas, canCaptureMouse, canMouseLook, getMouseSensitivity);
     input.setMouseLook(mouseLook);
     input.setEnabled(true);
+
+    const lobby = new NetLobby(net, {
+      startOpen: NET_LOBBY_START_OPEN,
+      onUiOpen: () => {
+        netUiOpen = true;
+        // Browsers unlock pointer lock on outside clicks — don't also force leaveCapture.
+      },
+      onUiClose: () => {
+        netUiOpen = false;
+        // Re-grab look after closing the lobby if we're in a playable state.
+        if (game?.phase === 'playing' && !game.menu.active) {
+          canvas.focus();
+          mouseLook?.requestLock();
+        }
+      },
+    });
+    lobby.mount();
+    net.onMatchStart = (msg) => {
+      lobby.hide();
+      game.beginNetMatch(msg);
+      canvas.focus();
+      mouseLook?.requestLock();
+    };
+    console.log(
+      `DoomJS multiplayer toggle (top-right circle). Relay ${defaultRelayUrl()}`
+      + (NET_LOBBY_START_OPEN ? ' — lobby opened (?net=1).' : ''),
+    );
 
     canvas.addEventListener('mousedown', () => {
       input.setEnabled(true);
@@ -160,7 +185,8 @@ async function start() {
     gameLoop = new GameLoop({
       onTick: () => {
         if (game && input) {
-          if (mouseLook && !canCaptureMouse()) {
+          // Only drop capture for the real pause menu — not the net lobby.
+          if (mouseLook && game.phase === 'playing' && game.menu.active) {
             mouseLook.leaveCapture();
             input.clearMouseButtons();
           }

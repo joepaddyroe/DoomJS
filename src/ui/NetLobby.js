@@ -1,17 +1,25 @@
 /**
- * Multiplayer lobby overlay + discreet top-right toggle.
+ * Multiplayer lobby overlay + top-right toggle.
  * Lobby starts hidden so single-player is the default experience.
  */
 export class NetLobby {
   /**
    * @param {import('../net/NetGameSession.js').NetGameSession} session
-   * @param {{ defaultRoom?: string, defaultMap?: string, startOpen?: boolean }} [opts]
+   * @param {{
+   *   defaultRoom?: string,
+   *   defaultMap?: string,
+   *   startOpen?: boolean,
+   *   onUiOpen?: () => void,
+   *   onUiClose?: () => void,
+   * }} [opts]
    */
   constructor(session, opts = {}) {
     this.session = session;
     this.defaultRoom = opts.defaultRoom ?? 'doom';
     this.defaultMap = opts.defaultMap ?? 'E1M1';
     this.startOpen = opts.startOpen ?? false;
+    this.onUiOpen = opts.onUiOpen ?? null;
+    this.onUiClose = opts.onUiClose ?? null;
     this.root = null;
     this.panel = null;
     this.toggleBtn = null;
@@ -30,46 +38,48 @@ export class NetLobby {
         #doomjs-net-ui {
           position: fixed;
           inset: 0;
-          z-index: 40;
+          z-index: 10000;
           pointer-events: none;
           font-family: "Segoe UI", system-ui, sans-serif;
         }
         #doomjs-net-toggle {
           pointer-events: auto;
           position: fixed;
-          top: 10px;
-          right: 10px;
-          z-index: 51;
-          width: 12px;
-          height: 12px;
+          top: 12px;
+          right: 12px;
+          z-index: 10001;
+          width: 22px;
+          height: 22px;
           border-radius: 50%;
-          border: 1px solid rgba(255, 255, 255, 0.18);
-          background: rgba(255, 255, 255, 0.07);
-          box-shadow: none;
+          border: 2px solid rgba(220, 210, 190, 0.55);
+          background: rgba(40, 36, 32, 0.35);
+          box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
           padding: 0;
           margin: 0;
           cursor: pointer;
-          opacity: 0.28;
-          transition: opacity 0.15s ease, background 0.15s ease, transform 0.15s ease;
+          opacity: 0.72;
+          transition: opacity 0.15s ease, background 0.15s ease, border-color 0.15s ease;
         }
         #doomjs-net-toggle:hover,
         #doomjs-net-toggle:focus-visible {
-          opacity: 0.65;
-          background: rgba(255, 255, 255, 0.16);
+          opacity: 1;
+          background: rgba(196, 92, 38, 0.55);
+          border-color: rgba(255, 200, 160, 0.9);
           outline: none;
         }
         #doomjs-net-toggle[aria-expanded="true"] {
-          opacity: 0.55;
-          background: rgba(196, 92, 38, 0.45);
-          border-color: rgba(196, 92, 38, 0.7);
+          opacity: 1;
+          background: rgba(196, 92, 38, 0.7);
+          border-color: rgba(255, 210, 170, 0.95);
         }
         #doomjs-net-panel {
           pointer-events: auto;
           position: absolute;
-          top: 1.25rem;
-          left: 50%;
-          transform: translateX(-50%);
-          width: min(420px, calc(100% - 2rem));
+          top: 2.5rem;
+          right: 12px;
+          left: auto;
+          transform: none;
+          width: min(420px, calc(100% - 1.5rem));
           background: rgba(18, 20, 28, 0.94);
           color: #e8e6e0;
           border: 1px solid #3a4258;
@@ -127,11 +137,25 @@ export class NetLobby {
     this.toggleBtn = root.querySelector('#doomjs-net-toggle');
     this.logEl = root.querySelector('#nl-log');
 
+    // Keep UI clicks from bubbling into the game canvas / focus stealers.
+    const guard = (event) => {
+      event.stopPropagation();
+    };
+    this.toggleBtn.addEventListener('pointerdown', guard);
+    this.toggleBtn.addEventListener('mousedown', guard);
+    this.panel.addEventListener('pointerdown', guard);
+    this.panel.addEventListener('mousedown', guard);
+
     this.toggleBtn.addEventListener('click', (event) => {
+      event.preventDefault();
       event.stopPropagation();
       this.toggle();
     });
-    root.querySelector('#nl-close').addEventListener('click', () => this.hide());
+    root.querySelector('#nl-close').addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.hide();
+    });
     root.querySelector('#nl-connect').addEventListener('click', () => void this._connect());
     root.querySelector('#nl-create').addEventListener('click', () => {
       const room = root.querySelector('#nl-room').value.trim() || 'doom';
@@ -197,19 +221,27 @@ export class NetLobby {
   }
 
   hide() {
+    const wasOpen = this.open;
     this.open = false;
     if (this.panel) {
       this.panel.hidden = true;
     }
     this.toggleBtn?.setAttribute('aria-expanded', 'false');
+    if (wasOpen) {
+      this.onUiClose?.();
+    }
   }
 
   show() {
+    const wasOpen = this.open;
     this.open = true;
     if (this.panel) {
       this.panel.hidden = false;
     }
     this.toggleBtn?.setAttribute('aria-expanded', 'true');
+    if (!wasOpen) {
+      this.onUiOpen?.();
+    }
   }
 
   async _connect() {
