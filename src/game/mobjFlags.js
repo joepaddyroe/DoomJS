@@ -18,3 +18,5 @@ export const MF_NOGRAVITY = 1 << 5;
 export const MF_FLOAT = 0x4000;
 /** p_mobj.h — spectre / partial invisibility (r_things.c fuzz draw) */
 export const MF_SHADOW = 0x40000;
+/** p_mobj.h — lost soul charge */
+export const MF_SKULLFLY = 0x1000000;

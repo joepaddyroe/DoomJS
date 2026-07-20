@@ -178,8 +178,19 @@ export function checkMissileRange(actor, collision) {
   }
 
   dist >>= 16;
+
+  if (actor.monsterType === 'cyborg'
+    || actor.monsterType === 'spider'
+    || actor.monsterType === 'skull') {
+    dist >>= 1;
+  }
+
   if (dist > 200) {
     dist = 200;
+  }
+
+  if (actor.monsterType === 'cyborg' && dist > 160) {
+    dist = 160;
   }
 
   if (gameRandom() < dist) {

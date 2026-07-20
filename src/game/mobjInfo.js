@@ -1,11 +1,19 @@
 import { FRACUNIT } from '../core/renderConstants.js';
 import { MF_COUNTITEM, MF_SOLID, MF_SPECIAL } from './mobjFlags.js';
 import {
+  BARON_HEIGHT,
+  BARON_RADIUS,
   BARREL_HEIGHT,
   BARREL_RADIUS,
-  monsterArchetypeForType,
+  CACO_RADIUS,
+  CYBER_HEIGHT,
+  CYBER_RADIUS,
+  DEMON_RADIUS,
   MONSTER_HEIGHT,
   MONSTER_RADIUS,
+  SKULL_RADIUS,
+  SPIDER_HEIGHT,
+  SPIDER_RADIUS,
 } from './monster/monsterInfo.js';
 
 /**
@@ -82,9 +90,17 @@ export const MOBJ_BY_TYPE = {
   55: { sprite: 'SMBT', fullbright: true, flags: MF_SOLID, radius: 16 * FRACUNIT, height: 16 * FRACUNIT },
   2028: { sprite: 'COLU', fullbright: true, flags: MF_SOLID, radius: 16 * FRACUNIT, height: 16 * FRACUNIT },
 
-  // Monsters (E1M1)
+  // Monsters (info.c doomednums — Doom 1)
   3004: { sprite: 'POSS', flags: 0, radius: MONSTER_RADIUS, height: MONSTER_HEIGHT, monster: true },
+  9: { sprite: 'SPOS', flags: 0, radius: MONSTER_RADIUS, height: MONSTER_HEIGHT, monster: true },
   3001: { sprite: 'TROO', flags: 0, radius: MONSTER_RADIUS, height: MONSTER_HEIGHT, monster: true },
+  3002: { sprite: 'SARG', flags: 0, radius: DEMON_RADIUS, height: MONSTER_HEIGHT, monster: true },
+  58: { sprite: 'SARG', flags: 0, radius: DEMON_RADIUS, height: MONSTER_HEIGHT, monster: true },
+  3005: { sprite: 'HEAD', flags: 0, radius: CACO_RADIUS, height: MONSTER_HEIGHT, monster: true },
+  3003: { sprite: 'BOSS', flags: 0, radius: BARON_RADIUS, height: BARON_HEIGHT, monster: true },
+  3006: { sprite: 'SKUL', flags: 0, radius: SKULL_RADIUS, height: MONSTER_HEIGHT, monster: true },
+  7: { sprite: 'SPID', flags: 0, radius: SPIDER_RADIUS, height: SPIDER_HEIGHT, monster: true },
+  16: { sprite: 'CYBR', flags: 0, radius: CYBER_RADIUS, height: CYBER_HEIGHT, monster: true },
   2035: { sprite: 'BAR1', flags: 0, radius: BARREL_RADIUS, height: BARREL_HEIGHT, monster: true },
 };
 

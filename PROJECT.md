@@ -16,7 +16,7 @@ If you are picking up this project with no chat history:
 4. Respect **§2–3** (SOLID + layers) before editing.
 5. After completing work, update **§12**, **§7**, and **§15 Changelog**.
 
-**Current maturity (2026-07-15):** Playable **single-player Doom 1 slice** — E1M1-style maps run with software rendering, all 8 weapons, 3 monster types, core doors/floors/plats, menus, music/SFX, wipes, JSON saves, intermission stats. **Corpse physics** and **in-game automap** (`am_map.c` subset) aligned with vanilla. **Not** a full vanilla port yet.
+**Current maturity (2026-07-16):** Playable **single-player Doom 1 slice** — E1M1-style maps run with software rendering, all 8 weapons, **full Doom 1 monster roster**, core doors/floors/plats, menus, music/SFX, wipes, JSON saves, intermission stats. **Corpse physics** and **in-game automap** (`am_map.c` subset) aligned with vanilla. **Not** a full vanilla port yet.
 
 ### Recent progress (2026-07-14 – 2026-07-15)
 
@@ -39,15 +39,15 @@ Use **§13** for file-level detail. Summary of what is **not** done yet:
 | **P0** | Key-locked doors (`player.cards` checks) | Not started |
 | **P0** | Teleports (`p_telept.c`) | Not started |
 | **P1** | Power-ups — light amp / berserk fist damage / full palette effects | Partial |
-| **P1** | Shotgun guy + demon monsters | Not started |
+| **P1** | Shotgun guy + demon monsters | Done |
 | **P2** | Crushing ceilings | Not started |
 | **P2** | Raise floor / stairs specials | Not started |
-| **P2** | Spectre spawn (fuzz draw exists) | Not started |
+| **P2** | Spectre spawn (fuzz draw exists) | Done |
 | **P3** | Automap polish (pan/zoom/follow keys) | Partial (overlay + player arrow; no pan/zoom UI) |
 | **P3** | Save completeness (thinkers, sectors, RNG, line state) | Partial (JSON subset) |
 | **P3** | E2–E4 map names + `MAP02+` progression | Partial (E1 only) |
 | **P3** | Per-episode skies (SKY2/SKY3) | Not started |
-| **P4** | Remaining Doom 1 monsters (cacodemon, baron, …) | Not started |
+| **P4** | Remaining Doom 1 monsters (cacodemon, baron, …) | Done |
 | **P4** | Cheats (`m_cheat.c`) | Not started |
 | **P4** | Finale screens (`f_finale.c`) | Not started |
 | **P4** | Center-screen pickup messages (`hu_stuff.c`) | Not started |
@@ -151,7 +151,7 @@ DoomJS/
 │   │   ├── spec/               # Doors, FloorMovers, Plats, specials
 │   │   ├── weapons/            # Psprites.js, weaponConstants.js
 │   │   ├── debug/              # CorpseDebug.js (optional Z diagnostics)
-│   │   └── monster/            # AI, missiles, combat (3 types only)
+│   │   └── monster/            # AI, missiles, combat (Doom 1 roster)
 │   ├── render/                 # SoftwareRenderer, BSP, walls, planes, sprites, HUD
 │   ├── audio/                  # SoundSystem, MusicSystem, OPL backend
 │   ├── ui/                     # MenuController, WipeMelt, Gamemode
@@ -226,7 +226,7 @@ Legend: `[x]` done · `[~]` partial · `[ ]` not started
 - [x] Item pickup (`ItemPickup.js`) — weapons, ammo, health, armor, keys, backpack
 - [~] Player powers — invuln/berserk/invis/automap work; light amp (`pw_infrared`) not yet
 - [x] Player death + use-to-respawn (reload level)
-- [~] Monsters — **zombieman, imp, barrel only**
+- [x] Monsters — Doom 1 roster: zombieman, shotgun guy, imp, demon, spectre, lost soul, cacodemon, baron, spiderdemon, cyberdemon (+ barrel)
 - [~] Map specials — doors/floors/plats subset (see §12.4)
 - [x] Sector damage (nukage/slime/hellslime)
 - [x] Exits (normal + secret)
@@ -278,7 +278,7 @@ Last audited: **2026-07-15** against `linuxdoom-1.10`. Re-audit after major feat
 Rendering (3D)     █████████░  ~95%   episode skies
 Automap (overlay)  ███████░░░  ~70%   core draw + player arrow; no pan/zoom UI
 Player / weapons   ████████░░  ~80%   powers, nightmare, attack sprite missing
-Monsters           ██░░░░░░░░  ~15%   3 types; corpse physics now vanilla-faithful
+Monsters           ████████░░  ~80%   Doom 1 roster; Doom II + nightmare TODO
 Map specials       ████░░░░░░  ~40%   no keys/teleport/crush/lights/stairs
 Items / inventory  ███████░░░  ~70%   pickups yes; power effects mostly stub
 Audio              ████████░░  ~80%   grows with content
@@ -327,9 +327,9 @@ Single-player path (`src/main.js` → `Game.js`) is unchanged.
 - Nightmare: menu skill 5 exists; no respawn/fast logic (`P_NightmareRespawn`, `-1 tics`)
 
 #### Monsters (`p_enemy.c`, `info.c`)
-- **Spawned today:** zombieman (3004), imp (3001), barrel (2035) — see `mobjInfo.js`, `monsterInfo.js`
-- **Fixed (2026-07-14):** corpse hover — vanilla collision (no map-specific hacks); `momz: 0` on spawn; `killMobj` → immediate `P_SetMobjState`; movement before state tick
-- **Missing:** shotgun guy, demon, spectre, lost soul, cacodemon, baron, spider, cyberdemon, … + most `A_*` state actions
+- **Spawned today (Doom 1):** zombieman (3004), shotgun guy (9), imp (3001), demon (3002), spectre (58), lost soul (3006), cacodemon (3005), baron (3003), spiderdemon (7), cyberdemon (16), barrel (2035)
+- **Actions:** `A_PosAttack`, `A_SPosAttack`, `A_TroopAttack`, `A_SargAttack`, `A_HeadAttack`, `A_BruisAttack`, `A_CyberAttack`, `A_SkullAttack`, `A_SpidRefire`, `A_Hoof`, `A_Metal`, `A_BossDeath` (E1M8 / E2M8 / E3M8 / E4)
+- **Not yet:** Doom II monsters (chaingunner, revenant, mancubus, arachnotron, arch-vile, pain elemental, hell knight, …) + nightmare respawn/fast
 
 #### Line / sector specials (`p_spec.c`, `p_switch.c`)
 
@@ -398,14 +398,14 @@ Use this when choosing what to port next. Goal: **complete Doom 1 (shareware + r
 | P0 | **Key-locked doors** | Blocks progression on E1M2+ | `Doors.js`, `PlayerCards.js` · `p_doors.c`, specials 26–28 |
 | P0 | **Teleports** | Many maps | new `Teleports.js` · `p_telept.c` |
 | P1 | **Power-ups** | Light amp, berserk fist | `ItemPickup.js`, `PlayerPowers.js` · `p_inter.c` |
-| P1 | **Shotgun guy + demon** | E1 combat | `mobjInfo.js`, `monsterInfo.js`, states · `p_enemy.c` |
+| P1 | **Shotgun guy + demon** | Done | `mobjInfo.js`, `monsterInfo.js`, states · `p_enemy.c` |
 | P2 | **Crushing ceilings** | E1M3-style traps | new ceiling thinkers · `p_ceilng.c` |
 | P2 | **Raise floor / stairs** | Unlocks geometry | `FloorMovers.js` · `p_floor.c`, `p_spec.c` |
-| P2 | **Spectre spawn** | E1M9 | `mobjInfo.js` — fuzz draw done (`MF_SHADOW`) |
+| P2 | **Spectre spawn** | Done | `mobjInfo.js` — fuzz draw (`MF_SHADOW`) |
 | P3 | **Automap polish** | Pan/zoom/keys | `Automap.js` · `am_map.c` (`AM_Responder`, marks, grid) |
 | P3 | **Save completeness** | Thinkers + sectors | `Game.js`, `SaveGameStore.js` · `p_saveg.c` |
 | P3 | **E2–E4 names + progression** | Full Doom 1 | `MapNames.js`, `Game.js` |
-| P4 | **More monsters** | E2+ | `monsterInfo.js`, `mobjInfo.js` |
+| P4 | **Doom 1 monsters (caco/baron/…)** | Done | `monsterInfo.js`, `MonsterThink.js`, missiles |
 | P4 | **Cheats** | Dev/QOL | new module · `m_cheat.c` |
 | P4 | **Finale screens** | Episode end | new scene · `f_finale.c` |
 | P5 | **Doom II MAP## progression** | Commercial WAD | `MapNames.js`, `Gamemode.js` |

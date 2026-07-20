@@ -24,6 +24,7 @@ import {
   MF_FLOAT,
   MF_MISSILE,
   MF_NOCLIP,
+  MF_SKULLFLY,
   MF_TELEPORT,
   ML_BLOCKING,
   ML_BLOCKMONSTERS,
@@ -201,6 +202,41 @@ export class MapCollision {
     }
     if (thing.removed) {
       return true;
+    }
+
+    // check for skulls slamming into things (p_map.c — PIT_CheckThing)
+    if (this.tmflags & MF_SKULLFLY) {
+      const blockdist = thing.radius + this.tmthing.radius;
+      if (Math.abs(thing.x - this.tmx) >= blockdist
+        || Math.abs(thing.y - this.tmy) >= blockdist) {
+        return true;
+      }
+      if (!(thing.flags & (MF_SOLID | MF_SPECIAL | MF_SHOOTABLE))) {
+        return true;
+      }
+      if (thing === this.tmthing) {
+        return true;
+      }
+
+      const damage = ((gameRandom() % 8) + 1) * (this.tmthing.monsterDef?.damage ?? 3);
+      if (this.damagePlayer) {
+        damageMobj(
+          thing,
+          this.tmthing,
+          this.tmthing,
+          damage,
+          this.damagePlayer,
+          this.dropCtx,
+        );
+      }
+      this.tmthing.flags &= ~MF_SKULLFLY;
+      this.tmthing.momx = 0;
+      this.tmthing.momy = 0;
+      this.tmthing.momz = 0;
+      if (this.tmthing.monsterDef?.spawnState) {
+        this.tmthing.pendingState = this.tmthing.monsterDef.spawnState;
+      }
+      return false;
     }
 
     if (this.tmflags & MF_MISSILE) {
@@ -447,6 +483,15 @@ export class MapCollision {
    */
   xyMovement(mo, cmd) {
     if (!mo.momx && !mo.momy) {
+      if (mo.flags & MF_SKULLFLY) {
+        mo.flags &= ~MF_SKULLFLY;
+        mo.momx = 0;
+        mo.momy = 0;
+        mo.momz = 0;
+        if (mo.monsterDef?.spawnState) {
+          mo.pendingState = mo.monsterDef.spawnState;
+        }
+      }
       return;
     }
 
@@ -494,6 +539,10 @@ export class MapCollision {
       }
     } while (xmove || ymove);
 
+    if (mo.flags & (MF_MISSILE | MF_SKULLFLY)) {
+      return;
+    }
+
     if (mo.z > mo.floorz) {
       return;
     }
@@ -506,10 +555,6 @@ export class MapCollision {
           return;
         }
       }
-    }
-
-    if (mo.flags & (MF_MISSILE)) {
-      return;
     }
 
     const stopped = mo.momx > -STOPSPEED && mo.momx < STOPSPEED

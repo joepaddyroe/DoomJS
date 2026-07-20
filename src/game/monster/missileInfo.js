@@ -1,6 +1,6 @@
 import { FRACUNIT } from '../../core/renderConstants.js';
 import { MF_DROPOFF, MF_MISSILE, MF_NOGRAVITY } from '../mobjFlags.js';
-import { TROOPSHOT_STATES } from './missileStates.js';
+import { BRUISERSHOT_STATES, HEADSHOT_STATES, TROOPSHOT_STATES } from './missileStates.js';
 import { BFG_STATES, PLASMA_STATES, ROCKET_STATES } from './playerMissileStates.js';
 
 /**
@@ -31,6 +31,34 @@ export const MISSILE_ARCHETYPES = {
     radius: 6 * FRACUNIT,
     height: 8 * FRACUNIT,
     damage: 3,
+    flags: MF_MISSILE | MF_DROPOFF | MF_NOGRAVITY,
+    spawnSound: 'firsht',
+    deathSound: 'firxpl',
+    hitType: 'direct',
+  },
+  headshot: {
+    id: 'headshot',
+    states: HEADSHOT_STATES,
+    spawnState: 'FLY1',
+    deathState: 'X1',
+    speed: 10 * FRACUNIT,
+    radius: 6 * FRACUNIT,
+    height: 8 * FRACUNIT,
+    damage: 5,
+    flags: MF_MISSILE | MF_DROPOFF | MF_NOGRAVITY,
+    spawnSound: 'firsht',
+    deathSound: 'firxpl',
+    hitType: 'direct',
+  },
+  bruisershot: {
+    id: 'bruisershot',
+    states: BRUISERSHOT_STATES,
+    spawnState: 'FLY1',
+    deathState: 'X1',
+    speed: 15 * FRACUNIT,
+    radius: 6 * FRACUNIT,
+    height: 8 * FRACUNIT,
+    damage: 8,
     flags: MF_MISSILE | MF_DROPOFF | MF_NOGRAVITY,
     spawnSound: 'firsht',
     deathSound: 'firxpl',

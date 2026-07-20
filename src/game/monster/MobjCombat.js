@@ -8,6 +8,7 @@ import {
   MF_FLOAT,
   MF_JUSTHIT,
   MF_SHOOTABLE,
+  MF_SKULLFLY,
   MF_SOLID,
 } from '../mobjFlags.js';
 import { fixedMul } from '../../math/fixed.js';
@@ -61,7 +62,7 @@ export function killMobj(target, source, deathCtx = null) {
     return;
   }
 
-  target.flags &= ~(MF_SHOOTABLE | MF_FLOAT);
+  target.flags &= ~(MF_SHOOTABLE | MF_FLOAT | MF_SKULLFLY);
   target.flags |= MF_CORPSE | MF_DROPOFF;
   target.flags &= ~MF_SOLID;
   if (target.monsterType !== 'barrel') {

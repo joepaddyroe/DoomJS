@@ -35,6 +35,25 @@ export const SFX_LUMPS = {
   bgact: 'DSBGACT',
   claw: 'DSCLAW',
   punch: 'DSPUNCH',
+  // Demon / spectre
+  sgtsit: 'DSSGTSIT',
+  sgtatk: 'DSSGTATK',
+  sgtdth: 'DSSGTDTH',
+  dmpain: 'DSDMPAIN',
+  dmact: 'DSDMACT',
+  // Cacodemon / baron / lost soul
+  cacsit: 'DSCACSIT',
+  cacdth: 'DSCACDTH',
+  brssit: 'DSBRSSIT',
+  brsdth: 'DSBRSDTH',
+  sklatk: 'DSSKLATK',
+  // Bosses
+  spisit: 'DSSPISIT',
+  spidth: 'DSSPIDTH',
+  cybsit: 'DSCYBSIT',
+  cybdth: 'DSCYBDTH',
+  hoof: 'DSHOOF',
+  metal: 'DSMETAL',
   // Barrel / gib / fireball
   barexp: 'DSBAREXP',
   slop: 'DSSLOP',

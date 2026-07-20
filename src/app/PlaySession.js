@@ -29,6 +29,7 @@ export class PlaySession {
    * @param {(secret?: boolean) => void} [options.onExitLevel]
    * @param {import('../game/Player.js').Player[]} [options.players]
    * @param {number} [options.localPlayerIndex]
+   * @param {string} [options.mapName]
    */
   constructor(level, player, sound = null, skill = 3, options = {}) {
     this.level = level;
@@ -36,6 +37,7 @@ export class PlaySession {
     this.players = options.players?.length ? options.players : [player];
     this.localPlayerIndex = options.localPlayerIndex ?? 0;
     this.player = this.players[this.localPlayerIndex] ?? player;
+    this.mapName = options.mapName ?? 'E1M1';
 
     this.things = spawnMapThings(level, skill);
     this.pickups = new ItemPickup(sound);
@@ -127,6 +129,9 @@ export class PlaySession {
         missiles: this.missiles,
         things: this.things,
         sound: this.specCtx.sound,
+        mapName: this.mapName,
+        specCtx: this.specCtx,
+        onExitLevel: () => this.specCtx.onExitLevel?.(false),
       };
       this.hitscan.monsterDeathCtx = monsterCtx;
       this.missiles.monsterDeathCtx = monsterCtx;
@@ -144,6 +149,9 @@ export class PlaySession {
       missiles: this.missiles,
       things: this.things,
       sound: this.specCtx.sound,
+      mapName: this.mapName,
+      specCtx: this.specCtx,
+      onExitLevel: () => this.specCtx.onExitLevel?.(false),
     };
     this.hitscan.monsterDeathCtx = monsterCtx;
     this.missiles.monsterDeathCtx = monsterCtx;

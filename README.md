@@ -52,7 +52,7 @@ Last audited **2026-07-15** against `linuxdoom-1.10`. Full gap analysis lives in
 Rendering (3D)     █████████░  ~95%   episode skies
 Automap (overlay)  ███████░░░  ~70%   core draw + player arrow; no pan/zoom UI
 Player / weapons   ████████░░  ~80%   powers, nightmare, attack sprite missing
-Monsters           ██░░░░░░░░  ~15%   3 types; corpse physics now vanilla-faithful
+Monsters           ████████░░  ~80%   Doom 1 roster; Doom II + nightmare TODO
 Map specials       ████░░░░░░  ~40%   no keys/teleport/crush/lights/stairs
 Items / inventory  ███████░░░  ~70%   pickups yes; power effects mostly stub
 Audio              ████████░░  ~80%   grows with content

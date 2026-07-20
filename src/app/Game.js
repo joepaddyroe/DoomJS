@@ -231,6 +231,7 @@ export class Game {
     this.playSession = new PlaySession(level, player, this.sound, this.skill, {
       textures: this.textures,
       onExitLevel: (secret) => this.completeLevel(secret),
+      mapName: this.mapName,
     });
 
     // Apply player snapshot.
@@ -684,6 +685,7 @@ export class Game {
       onExitLevel: (secret) => this.completeLevel(secret),
       players,
       localPlayerIndex: localIndex,
+      mapName: this.mapName,
     });
 
     this.statusBar.resetForPlayer(player);
